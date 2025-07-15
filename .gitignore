@@ -1,11 +1,12 @@
 # Dependencies
 node_modules/
+wip_content/
+src/components/wip
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
 # Build outputs
-dist/
 build/
 .output/
 
