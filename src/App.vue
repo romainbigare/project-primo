@@ -10,7 +10,7 @@
 <style scoped>
 .layout-content {
     flex-grow: 1; /* Allow content to take available space if using flexbox for layout-container */
-    padding: 20px; /* Add some padding around the main content */
+    padding: 0px; /* Add some padding around the main content */
     /* Add any other styling for your main content area */
 }
 

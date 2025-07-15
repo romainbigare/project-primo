@@ -23,7 +23,7 @@ body {
     background-color: var(--p-surface-50);
     color: var(--p-surface-950);
     min-height: 100vh;
-    padding: 2rem;
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;

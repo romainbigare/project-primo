@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import App from '../App.vue'; // Your main App component
 import AboutPage from '../pages/about.vue';
 import DashboardView from '../pages/dashboard.vue'; // Import your new DashboardView
+import Viewer from '../pages/viewer.vue'; // Import your Viewer component
 
 const routes: RouteRecordRaw[] = [
     {
@@ -18,6 +19,11 @@ const routes: RouteRecordRaw[] = [
                 path: '/about',
                 name: 'about',
                 component: AboutPage
+            },
+            {
+                path: '/viewer',
+                name: 'viewer',
+                component: Viewer // Render the Viewer component
             }
         ]
     }

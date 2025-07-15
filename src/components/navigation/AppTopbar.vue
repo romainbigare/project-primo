@@ -1,7 +1,7 @@
 <script setup>
 import { useLayout } from "../../composables/useLayout";
 import AppConfig from "./AppConfig.vue";
-import Button from 'primevue/button'; // Make sure you import Button if it's a PrimeVue component
+import Button from 'primevue/button'; 
 
 const { isDarkMode, toggleDarkMode } = useLayout();
 </script>
@@ -16,11 +16,21 @@ const { isDarkMode, toggleDarkMode } = useLayout();
                 </span>
             </div>
             <div class="topbar-actions">
+
+                <!-- router to babylon viewer -->
+                <router-link to="/viewer" custom v-slot="{ navigate }">
+                    <Button type="button" class="topbar-button p-button-text" @click="navigate" rounded>
+                        Viewer
+                    </Button>
+                </router-link>
+
+                <!-- router to about page -->
                 <router-link to="/about" custom v-slot="{ navigate }">
                     <Button type="button" class="topbar-button p-button-text" @click="navigate" rounded>
                         About Us
                     </Button>
                 </router-link>
+
                 <Button type="button" class="topbar-theme-button" @click="toggleDarkMode" text rounded>
                     <i :class="['pi ', 'pi ', { 'pi-moon': isDarkMode, 'pi-sun': !isDarkMode }]" />
                 </Button>
