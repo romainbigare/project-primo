@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="js">
 import StatsWidget from "./../components/dashboard/StatsWidget.vue";
 import SalesTrendWidget from "./../components/dashboard/SalesTrendWidget.vue";
 import RecentActivityWidget from "./../components/dashboard/RecentActivityWidget.vue";

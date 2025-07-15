@@ -5,7 +5,7 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 // You can add any script logic here if needed
 </script>
 

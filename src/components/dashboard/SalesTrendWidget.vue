@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="js">
 import { ref, watch, onMounted } from "vue";
 import { useLayout } from "../../composables/useLayout";
 

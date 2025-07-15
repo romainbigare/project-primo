@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="js">
 const activities = [
     {
         icon: "pi-shopping-cart",
