@@ -13,13 +13,15 @@ class SelectionManager {
 
         // Use a HighlightLayer for robust, non-destructive highlighting
         this.highlightLayer = new this.BABYLON.HighlightLayer("highlight-layer", this.scene);
-        this.highlightLayer.innerGlow = true;
-        this.highlightLayer.outerGlow = true;
+        this.highlightLayer.faceHighlightColor = new this.BABYLON.Color3(0.1, 0.3, 0.8); // Brighter dark blue
+        this.highlightLayer.innerGlow = false;
+        this.highlightLayer.outerGlow = false;
+
         
         // Colors for different selection types
-        this.meshHighlightColor = new this.BABYLON.Color3(0, 1, 1); // Cyan
-        this.faceHighlightColor = new this.BABYLON.Color3(1, 1, 0); // Yellow
-        this.componentHighlightColor = new this.BABYLON.Color3(1, 0, 1); // Magenta
+        this.meshHighlightColor = new this.BABYLON.Color3(0.1, 0.3, 0.8) // Brighter dark blue
+        this.faceHighlightColor = new this.BABYLON.Color3(0.1, 0.3, 0.8) // Brighter dark blue
+        this.componentHighlightColor = new this.BABYLON.Color3(0.1, 0.3, 0.8) // Brighter dark blue
         
         // Selection click handling variables
         this.clickCount = 0;
@@ -114,7 +116,7 @@ class SelectionManager {
                 this.onSelectionChanged({
                     selectedMeshes: Array.from(this.selectedMeshes),
                     selectedSubMeshes: this.selectedSubMeshes,
-                    clickCount: clickCount
+                    clickCount: clicks
                 });
             }
         } catch (error) {

@@ -42,8 +42,8 @@ class HighlightManager {
         
         // Performance throttling
         this.lastUpdateTime = 0
-        this.updateThrottle = 16 // ~60fps
-        
+        this.updateThrottle = 100 // Increased from 16ms to 100ms (~10fps instead of 60fps)
+
         // Epsilon for floating point comparisons
         this.epsilon = 1e-5
 
@@ -200,8 +200,6 @@ class HighlightManager {
             console.error('Error clearing highlight:', error)
         }
     }
-    
-    // ===== MESH ANALYSIS METHODS (adapted from SelectionManager) =====
     
     /**
      * Create a mesh from specific faces of a parent mesh

@@ -52,6 +52,10 @@ export class MaterialLibrary {
         this.materials = new Map()
         this.customMaterialClasses = new Map()
         this.isInitialized = false
+        
+        // Cache for material instances to avoid recreating them
+        this.materialInstanceCache = new Map()
+        
         this.initializeAsync()
     }
 
@@ -173,7 +177,7 @@ export class MaterialLibrary {
     }
 
     // Helper method to create a properly configured PBR material
-    createPBRMaterial(name, baseColor, metallicFactor = 0.0, roughnessFactor = 0.5, alpha = 1.0) {
+    createPBRMaterial(name, baseColor, metallic = 0.0, roughness = 0.5, alpha = 1.0) {
         const material = new this.BABYLON.PBRMaterial(name, this.scene)
         
         // Set base color using both properties for compatibility
@@ -181,8 +185,8 @@ export class MaterialLibrary {
         material.albedoColor = baseColor.clone()
         
         // Material properties
-        material.metallicFactor = metallicFactor
-        material.roughnessFactor = roughnessFactor
+        material.metallic = metallic
+        material.roughness = roughness
         material.alpha = alpha
         
         // Lighting setup - more realistic values
@@ -206,8 +210,8 @@ export class MaterialLibrary {
         // White Concrete
         const whiteConcrete = new this.BABYLON.PBRMaterial('whiteConcrete', this.scene)
         whiteConcrete.baseColor = new this.BABYLON.Color3(0.9, 0.9, 0.9)
-        whiteConcrete.roughnessFactor = 0.8
-        whiteConcrete.metallicFactor = 0.0
+        whiteConcrete.roughness = 0.8
+        whiteConcrete.metallic = 0.0
         whiteConcrete.alpha = 1.0  // Fully opaque
         
         //this.createPBRMaterial('whiteConcrete', new this.BABYLON.Color3(0.9, 0.9, 0.9), 0.0, 0.8)
@@ -784,8 +788,8 @@ export class MaterialLibrary {
         console.log('Type:', material.constructor.name)
         console.log('BaseColor:', material.baseColor)
         console.log('AlbedoColor:', material.albedoColor)
-        console.log('MetallicFactor:', material.metallicFactor)
-        console.log('RoughnessFactor:', material.roughnessFactor)
+        console.log('Metallic:', material.metallic)
+        console.log('Roughness:', material.roughness)
         console.log('Alpha:', material.alpha)
         console.log('EnvironmentIntensity:', material.environmentIntensity)
         console.log('DirectIntensity:', material.directIntensity)
@@ -806,9 +810,17 @@ export class MaterialLibrary {
      * @returns {BABYLON.Material} The created material instance
      */
     _createMaterialInstance(materialData, instanceName) {
+        // Check cache first to avoid recreating materials
+        const cacheKey = `${materialData.name}_${instanceName}`
+        if (this.materialInstanceCache.has(cacheKey)) {
+            return this.materialInstanceCache.get(cacheKey)
+        }
+        
+        let newMaterial
+        
         if (materialData.material instanceof this.BABYLON.PBRMaterial) {
             // Create a new PBR material instance
-            const newMaterial = new this.BABYLON.PBRMaterial(instanceName, this.scene)
+            newMaterial = new this.BABYLON.PBRMaterial(instanceName, this.scene)
             const originalMaterial = materialData.material
             
             // Copy all PBR properties
@@ -816,8 +828,8 @@ export class MaterialLibrary {
             newMaterial.baseColor = baseColor.clone()
             newMaterial.albedoColor = baseColor.clone()
             
-            newMaterial.metallicFactor = originalMaterial.metallicFactor !== undefined ? originalMaterial.metallicFactor : 0.0
-            newMaterial.roughnessFactor = originalMaterial.roughnessFactor !== undefined ? originalMaterial.roughnessFactor : 0.5
+            newMaterial.metallic = originalMaterial.metallic !== undefined ? originalMaterial.metallic : 0.0
+            newMaterial.roughness = originalMaterial.roughness !== undefined ? originalMaterial.roughness : 0.5
             
             if (originalMaterial.alpha !== undefined) {
                 newMaterial.alpha = originalMaterial.alpha
@@ -832,14 +844,16 @@ export class MaterialLibrary {
             newMaterial.emissiveIntensity = originalMaterial.emissiveIntensity !== undefined ? originalMaterial.emissiveIntensity : 0.0
             newMaterial.specularIntensity = originalMaterial.specularIntensity !== undefined ? originalMaterial.specularIntensity : 1.0
             newMaterial.backFaceCulling = originalMaterial.backFaceCulling !== undefined ? originalMaterial.backFaceCulling : true
-            
-            return newMaterial
         } else {
             // For custom materials, clone and copy properties
-            const newMaterial = materialData.material.clone(instanceName)
+            newMaterial = materialData.material.clone(instanceName)
             this.copyCustomMaterialProperties(materialData.material, newMaterial)
-            return newMaterial
         }
+        
+        // Cache the created material
+        this.materialInstanceCache.set(cacheKey, newMaterial)
+        
+        return newMaterial
     }
 
     /**
@@ -987,6 +1001,14 @@ export class MaterialLibrary {
                 mesh._faceMeshes = []
             }
         })
+        
+        // Clean up cached material instances
+        this.materialInstanceCache.forEach(material => {
+            if (material && material.dispose) {
+                material.dispose()
+            }
+        })
+        this.materialInstanceCache.clear()
         
         this.materials.forEach(materialData => {
             if (materialData.material && materialData.material.dispose) {

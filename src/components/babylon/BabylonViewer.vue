@@ -250,11 +250,24 @@ onMounted(async () => {
         scene.value.render()
     })
 
+    // Throttle snap manager updates to reduce FPS impact
+    let lastSnapUpdate = 0
+    // Increase the interval to reduce snapManager update frequency (e.g., ~10fps)
+    const snapUpdateInterval = 100 // ms, adjust as needed
+
+    
     scene.value.onBeforeRenderObservable.add(() => {
-        snapManager.value.update();
+        const now = performance.now()
+        if (snapManager.value.isEnabled && now - lastSnapUpdate > snapUpdateInterval) {
+            snapManager.value.update();
+            lastSnapUpdate = now
+        }
     });
 
-    scene.value.debugLayer.show({ showExplorer: false });
+    // Only show debug layer in development
+    if (import.meta.env.DEV) {
+        scene.value.debugLayer.show({ showExplorer: false });
+    }
 
     // Prevent scroll events from propagating to the page
     renderCanvas.value.addEventListener('wheel', onWheel, { passive: false })
@@ -351,8 +364,8 @@ async function loadModelsInGrid(BABYLON, scene) {
         /*/
         cube.material = new BABYLON.PBRMaterial(`sampleCubeMat${i}`, scene)
         cube.material.baseColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random())
-        cube.material.roughnessFactor = Math.random() * 0.5 + 0.5 // Random roughness between 0.5 and 1.0
-        cube.material.metallicFactor = Math.random() * 0.2 // Random metallic between 0 and 0.2
+        cube.material.roughness = Math.random() * 0.5 + 0.5 // Random roughness between 0.5 and 1.0
+        cube.material.metallic = Math.random() * 0.2 // Random metallic between 0 and 0.2
         cube.material.alpha = 1.0  // Fully opaque
 
         cube.receiveShadows = true // Enable shadow receiving
@@ -363,7 +376,6 @@ async function loadModelsInGrid(BABYLON, scene) {
 
         enhanceMaterial(cube.material, BABYLON) // Enhance material for studio lighting
         
-        console.log(`Created sample cube ${i} with roughness ${cube.material.roughnessFactor} and metallic ${cube.material.metallicFactor}`)
     }
 
     console.log('All models loaded and positioned in grid')
@@ -450,8 +462,8 @@ function enhanceMaterial(material, BABYLON) {
     // If it's already a PBR material, enhance it for studio lighting
     if (material instanceof BABYLON.PBRMaterial) {
         // Enhance existing PBR material
-        if (material.metallicFactor === undefined) material.metallicFactor = 0.2
-        if (material.roughnessFactor === undefined) material.roughnessFactor = 0.6
+        if (material.metallic === undefined) material.metallic = 0.2
+        if (material.roughness === undefined) material.roughness = 0.6
         material.environmentIntensity = 0.8
         
         // Ensure proper lighting response
