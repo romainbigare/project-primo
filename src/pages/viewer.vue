@@ -1,11 +1,11 @@
 <template>
     <div class="viewer-page">
-        <Babylon />
+        <BabylonViewer />
     </div>
 </template>
 
 <script setup>
-import Babylon from '../components/babylon/Babylon.vue';
+import BabylonViewer from '../components/babylon/BabylonViewer.vue';
 </script>
 
 <style scoped>

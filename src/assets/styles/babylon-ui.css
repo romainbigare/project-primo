@@ -1,0 +1,317 @@
+/* Babylon UI Components - Shared Styles */
+
+/* Common panel/toolbar container styles */
+.babylon-panel,
+.babylon-toolbar {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px); /* Safari support */
+    border-radius: 12px;
+    box-shadow: 0 2px 40px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    z-index: 1000;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+/* Fallback for browsers that don't support backdrop-filter */
+@supports not (backdrop-filter: blur(10px)) {
+    .babylon-panel,
+    .babylon-toolbar {
+        background: rgba(255, 255, 255, 0.85);
+    }
+}
+
+/* Fixed positioning variants */
+.babylon-toolbar {
+    position: fixed;
+}
+
+.babylon-panel {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Common tool button styles */
+.babylon-tool-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 44px;
+    padding: 4px;
+    border-radius: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.babylon-tool-button:hover {
+    background: rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+}
+
+.babylon-tool-button.active {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Icon styles */
+.babylon-tool-button i {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 2px;
+    transition: color 0.2s ease;
+}
+
+.babylon-tool-button:hover i {
+    color: black;
+}
+
+.babylon-tool-button.active i {
+    color: #3b82f6;
+}
+
+/* Tool label styles */
+.babylon-tool-label {
+    font-size: 9px;
+    font-weight: 500;
+    color: #888;
+    text-align: center;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.babylon-tool-button:hover .babylon-tool-label {
+    color: #000000;
+}
+
+.babylon-tool-button.active .babylon-tool-label {
+    color: #3b82f6;
+}
+
+/* Separator styles */
+.babylon-toolbar-separator {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Horizontal separator (for horizontal toolbars) */
+.babylon-toolbar-separator.horizontal {
+    width: 1px;
+    height: 30px;
+    margin: 0 8px;
+}
+
+/* Vertical separator (for vertical toolbars) */
+.babylon-toolbar-separator.vertical {
+    width: 30px;
+    height: 1px;
+    margin: 8px 0;
+}
+
+/* Panel header styles */
+.babylon-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px 12px 0 0;
+}
+
+.babylon-panel-title-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.babylon-panel-icon {
+    font-size: 16px;
+    color: #666;
+    transition: color 0.2s ease;
+}
+
+.babylon-panel-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.babylon-panel-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.babylon-panel-control-btn {
+    background: transparent;
+    border: none;
+    color: #666;
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+}
+
+.babylon-panel-control-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #333;
+}
+
+/* Panel content styles */
+.babylon-panel-content {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Common scrollbar styles */
+.babylon-panel-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.babylon-panel-content::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+}
+
+.babylon-panel-content::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.babylon-panel-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Height constraints for panels */
+.babylon-panel {
+    max-height: calc(100vh - 40px);
+}
+
+/* Toolbar layouts */
+.babylon-toolbar-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Vertical toolbar layout */
+.babylon-toolbar.vertical {
+    width: 60px;
+    padding: 8px;
+}
+
+.babylon-toolbar.vertical .babylon-toolbar-tools {
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+
+/* Horizontal toolbar layout */
+.babylon-toolbar.horizontal {
+    height: 60px;
+    padding: 8px;
+}
+
+.babylon-toolbar.horizontal .babylon-toolbar-tools {
+    flex-direction: row;
+    height: 100%;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .babylon-panel {
+        max-height: calc(100vh - 20px);
+    }
+    
+    .babylon-toolbar.vertical {
+        width: 50px;
+        padding: 6px;
+    }
+    
+    .babylon-toolbar.horizontal {
+        height: 50px;
+        padding: 6px;
+    }
+    
+    .babylon-tool-button {
+        width: 40px;
+        height: 38px;
+        padding: 2px;
+    }
+    
+    .babylon-tool-button i {
+        font-size: 14px;
+    }
+    
+    .babylon-tool-label {
+        font-size: 8px;
+    }
+    
+    .babylon-toolbar-separator.horizontal {
+        height: 24px;
+        margin: 0 6px;
+    }
+    
+    .babylon-toolbar-separator.vertical {
+        width: 24px;
+        margin: 6px 0;
+    }
+}
+
+/* Special toolbar positioning classes */
+.babylon-toolbar.top-center {
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.babylon-toolbar.left-center {
+    top: 50%;
+    left: 20px;
+    transform: translateY(-50%);
+}
+
+.babylon-toolbar.right-center {
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
+}
+
+.babylon-panel.top-right {
+    top: 20px;
+    right: 100px;
+    height: 50vh; /* Default height to 50% of viewport height */
+}
+
+@media (max-width: 768px) {
+    .babylon-toolbar.top-center {
+        top: 10px;
+    }
+    
+    .babylon-toolbar.left-center {
+        left: 10px;
+    }
+    
+    .babylon-toolbar.right-center {
+        right: 10px;
+    }
+    
+    .babylon-panel.top-right {
+        right: 70px;
+        width: 250px;
+        height: 50vh; /* Maintain 50% height on mobile */
+    }
+}

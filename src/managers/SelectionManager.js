@@ -109,9 +109,13 @@ class SelectionManager {
                 }
             }
             
-            // Trigger selection changed callback...
+            // Trigger selection changed callback
             if (this.onSelectionChanged) {
-                // ...
+                this.onSelectionChanged({
+                    selectedMeshes: Array.from(this.selectedMeshes),
+                    selectedSubMeshes: this.selectedSubMeshes,
+                    clickCount: clickCount
+                });
             }
         } catch (error) {
             console.error('Error in processSelection:', error);
@@ -122,10 +126,20 @@ class SelectionManager {
         this.onSelectionChanged = callback
     }
 
+    _triggerSelectionChanged() {
+        if (this.onSelectionChanged) {
+            this.onSelectionChanged({
+                selectedMeshes: Array.from(this.selectedMeshes),
+                selectedSubMeshes: this.selectedSubMeshes
+            });
+        }
+    }
+
     addMesh(mesh) {
         if (!this.selectedMeshes.has(mesh)) {
             this.selectedMeshes.add(mesh);
             this.highlightLayer.addMesh(mesh, this.meshHighlightColor);
+            this._triggerSelectionChanged();
         }
     }
 
@@ -139,12 +153,14 @@ class SelectionManager {
         this.highlightLayer.removeAllMeshes();
         this.selectedMeshes.clear();
         this.selectedSubMeshes.clear();
+        this._triggerSelectionChanged();
     }
     
     removeMesh(mesh) {
         if (this.selectedMeshes.has(mesh)) {
             this.selectedMeshes.delete(mesh);
             this.highlightLayer.removeMesh(mesh);
+            this._triggerSelectionChanged();
         }
     }
 

@@ -8,23 +8,41 @@
             :scene="scene"
             :camera="camera"
             :viewManager="viewManager"
+            :toolsOrchestrator="toolsOrchestrator"
             :lights="lights"
             :ground="ground"
             :shadowGenerator="shadowGenerator"
             :meshes="allMeshes"
             :pipeline="pipeline"
-            @tool-changed="onViewToolChanged"
+        />
+        
+        <!-- Scene Management Toolbar -->
+        <SceneManagementToolbar 
+            ref="sceneManagementToolbar"
+            :scene="scene"
+            :meshes="allMeshes"
+            :toolsOrchestrator="toolsOrchestrator"
+            @toggle-materials-panel="toggleMaterialsPanel"
+            @scene-info="onSceneInfo"
+            @reset-scene="onResetScene"
+            @export-scene="onExportScene"
         />
         
         <!-- Modeling Toolbar -->
         <ModelingToolbar 
             ref="modelingToolbar"
             :scene="scene"
-            :canvas="renderCanvas"
+            :toolsOrchestrator="toolsOrchestrator"
+        />
+        
+        <!-- Materials Panel -->
+        <MaterialsPanel 
+            ref="materialsPanel"
+            :scene="scene"
             :selectionManager="selectionManager"
-            :snapManager="snapManager"
-            @tool-changed="onModelingToolChanged"
-            @selection-changed="onSelectionChanged"
+            :allMeshes="allMeshes"
+            :toolsOrchestrator="toolsOrchestrator"
+            v-model:visible="showMaterialsPanel"
         />
     </div>
 </template>
@@ -66,12 +84,15 @@
 </style>
 
 <script setup>
-import { onMounted, ref, onBeforeUnmount } from 'vue'
+import { onMounted, ref, onBeforeUnmount, watch } from 'vue'
 import ViewToolbar from './ViewToolbar.vue'
+import SceneManagementToolbar from './SceneManagementToolbar.vue'
 import ModelingToolbar from './ModelingToolbar.vue'
-import SelectionManager from './utils/SelectionManager.js'
-import ViewManager from './utils/ViewManager.js'
-import SnapManager from './utils/SnapManager.js'
+import MaterialsPanel from './MaterialsPanel.vue'
+import SelectionManager from '../../managers/SelectionManager.js'
+import ViewManager from '../../managers/ViewManager.js'
+import SnapManager from '../../managers/SnapManager.js'
+import ToolsOrchestrator from '../../managers/ToolsOrchestrator.js'
 
 let engine = null
 let scene = ref(null)
@@ -85,17 +106,37 @@ const allMeshes = ref([])
 const selectionManager = ref(null)
 const viewManager = ref(null)
 const snapManager = ref(null)
+const toolsOrchestrator = ref(null)
 const camera = ref(null)
 const pipeline = ref(null)
 
 const renderCanvas = ref(null)
 const viewToolbar = ref(null)
+const sceneManagementToolbar = ref(null)
 const modelingToolbar = ref(null)
+const materialsPanel = ref(null)
+
+// Materials panel visibility state
+const showMaterialsPanel = ref(true)
+
+// Watch for MaterialsPanel visibility changes and sync with SceneManagementToolbar
+watch(showMaterialsPanel, (newValue) => {
+    if (sceneManagementToolbar.value) {
+        sceneManagementToolbar.value.setMaterialsPanelState(newValue)
+    }
+})
 
 onMounted(async () => {
+    console.log('Babylon.vue: Starting initialization...')
+    
     // Dynamically import Babylon.js to avoid SSR issues
     BABYLON = await import('babylonjs')
     await import('babylonjs-loaders')
+    
+    console.log('Babylon.vue: BABYLON library loaded')
+    
+    // Expose BABYLON to window for other components
+    window.BABYLON = BABYLON
     
     // Check if WebGPU is supported
     const webgpuSupported = await BABYLON.WebGPUEngine.IsSupportedAsync
@@ -181,6 +222,24 @@ onMounted(async () => {
         console.log('SnapManager initialized successfully')
     } catch (error) {
         console.error('Error initializing SnapManager:', error)
+    }
+
+    // Initialize toolsOrchestrator
+    try {
+        toolsOrchestrator.value = new ToolsOrchestrator(scene.value, camera.value, renderCanvas.value, BABYLON, {
+            viewManager: viewManager.value,
+            selectionManager: selectionManager.value,
+            snapManager: snapManager.value
+        })
+        
+        // Set up mode change listener to update toolbars
+        toolsOrchestrator.value.onModeChange((modeData) => {
+            onModeChanged(modeData)
+        })
+        
+        console.log('toolsOrchestrator initialized successfully')
+    } catch (error) {
+        console.error('Error initializing toolsOrchestrator:', error)
     }
 
     // Set up realistic lighting
@@ -301,8 +360,10 @@ async function loadModelsInGrid(BABYLON, scene) {
 
 function setupRealisticLighting(BABYLON, scene) {
     // Set a neutral studio background
-    scene.clearColor = new BABYLON.Color3(0.9, 0.9, 0.9) // Light gray background
+    scene.clearColor = new BABYLON.Color3(1,1,1) // Light gray background
     
+    var hdrTexture = new BABYLON.CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/environments/environmentSpecular.env", scene);
+    scene.environmentTexture = hdrTexture;
     // 1. Key light (Main directional light) - soft studio lighting
     const keyLight = new BABYLON.DirectionalLight(
         'keyLight',
@@ -421,45 +482,81 @@ function onWheel(event) {
     }
 }
 
-// Modeling Toolbar Event Handlers
-let currentCamera = null
-
-function onViewToolChanged(data) {
-    console.log(`View tool changed to: ${data.tool}`)
+// Event Handlers
+function onModeChanged(modeData) {
+    console.log(`Mode changed from ${modeData.previousMode} to ${modeData.newMode}`)
     
+    // Update toolbars based on mode change
+    if (viewToolbar.value) {
+        viewToolbar.value.onModeChanged(modeData)
+    }
     if (modelingToolbar.value) {
-            modelingToolbar.value.deactivateModelingTools()
+        modelingToolbar.value.onModeChanged(modeData)
     }
-}
-
-function onModelingToolChanged(data) {
-    console.log('Active modeling tool changed:', data.tool)
-    
-    // When a modeling tool is activated, deactivate view tools (return to orbit)
-    if (data.tool && viewToolbar.value) {
-        viewToolbar.value.deactivateViewTools()
-    }
-    
-    // Store camera reference if not already stored
-    if (!currentCamera && scene.value) {
-        currentCamera = scene.value.activeCamera
-    }
-    // Manage camera controls based on active tool
-    if (data.tool === 'pencil' || data.tool === 'pushpull') {
-        // For drawing and push-pull tools, we may want to keep camera controls
-        // but with lower priority - the tools handle events in capture phase
-        console.log(`${data.tool} tool active - modeling tools have event priority`)
-    } else {
-        // Selection tool can work alongside camera controls
-        console.log(`${data.tool} tool active - camera controls normal`)
+    if (sceneManagementToolbar.value) {
+        sceneManagementToolbar.value.onModeChanged(modeData)
     }
 }
 
 function onSelectionChanged(data) {
     console.log('Selection changed:', data)
-    // Handle selection changes - you could emit this to parent components
-    // or update global state as needed
+}
+
+// Scene Management Toolbar event handlers
+function toggleMaterialsPanel(visible) {
+    showMaterialsPanel.value = visible
+    if (sceneManagementToolbar.value) {
+        sceneManagementToolbar.value.setMaterialsPanelState(visible)
+    }
     
+    // Enter or exit material editing mode based on panel visibility
+    if (toolsOrchestrator.value) {
+        if (visible) {
+            toolsOrchestrator.value.setMode('material-editing')
+        } else {
+            // Only exit material editing mode if we're currently in it
+            if (toolsOrchestrator.value.getCurrentMode() === 'material-editing') {
+                toolsOrchestrator.value.exitCurrentMode()
+            }
+        }
+    }
+}
+
+function onSceneInfo(info) {
+    console.log('Scene info requested:', info)
+    // This could be expanded to show a proper dialog or emit to parent
+}
+
+function onResetScene() {
+    console.log('Reset scene requested')
+    // Clear all meshes from the scene (but keep lights, camera, ground)
+    if (scene.value) {
+        const meshesToRemove = scene.value.meshes.filter(mesh => 
+            mesh.name !== 'ground' && 
+            mesh.name !== 'skybox' &&
+            !mesh.name.includes('light')
+        )
+        
+        meshesToRemove.forEach(mesh => {
+            mesh.dispose()
+        })
+        
+        // Update allMeshes array
+        allMeshes.value = scene.value.meshes.filter(mesh => 
+            mesh.name !== 'ground' && 
+            mesh.name !== 'skybox' &&
+            !mesh.name.includes('light')
+        )
+        
+        console.log('Scene reset completed')
+    }
+}
+
+function onExportScene() {
+    console.log('Export scene requested')
+    // This could be expanded to actually export the scene
+    // For now, just show a placeholder message
+    alert('Export functionality will be implemented in a future update.')
 }
 
 onBeforeUnmount(() => {
@@ -475,6 +572,9 @@ onBeforeUnmount(() => {
     }
     if (snapManager.value) {
         snapManager.value.dispose()
+    }
+    if (toolsOrchestrator.value) {
+        toolsOrchestrator.value.dispose()
     }
     if (engine) {
         engine.dispose()
