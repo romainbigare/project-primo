@@ -14,13 +14,16 @@ class HighlightManager {
         
         // Create a separate highlight layer for hover effects
         this.hoverHighlightLayer = new this.BABYLON.HighlightLayer("hover-highlight-layer", this.scene)
-        this.hoverHighlightLayer.innerGlow = false
-        this.hoverHighlightLayer.outerGlow = true
+        this.hoverHighlightLayer.innerGlow = true  // Enable inner glow for face fill
+        this.hoverHighlightLayer.outerGlow = true  // Enable outer glow for perimeter
         
-        // Colors for different highlight types
-        this.meshHoverColor = new this.BABYLON.Color3(0.2, 0.8, 1.0) // Light blue
-        this.faceHoverColor = new this.BABYLON.Color3(1.0, 0.8, 0.2) // Orange
-        this.materialAssignmentColor = new this.BABYLON.Color3(0.2, 1.0, 0.4) // Green
+        // Adjust highlight layer properties for better visibility
+        this.hoverHighlightLayer.blurHorizontalSize = 0.0
+        this.hoverHighlightLayer.blurVerticalSize = 0.0
+        
+        // Colors for different highlight types - all using dark blue
+        this.faceHoverColor = new this.BABYLON.Color3(0.1, 0.3, 0.8) // Brighter dark blue
+        this.materialAssignmentColor = new this.BABYLON.Color3(0.1, 0.3, 0.8) // Brighter dark blue
         
         // Current hover state
         this.currentHoveredMesh = null
@@ -31,8 +34,6 @@ class HighlightManager {
         // Highlight modes
         this.modes = {
             NONE: 'none',
-            MESH: 'mesh',           // Highlight entire mesh
-            FACE: 'face',           // Highlight individual face
             PLANAR_SURFACE: 'planar-surface', // Highlight connected coplanar faces
             MATERIAL_ASSIGNMENT: 'material-assignment' // Special highlight for material assignment
         }
@@ -45,7 +46,13 @@ class HighlightManager {
         
         // Epsilon for floating point comparisons
         this.epsilon = 1e-5
-        
+
+        // Create a basic material for temporary highlight meshes
+        this.highlightMaterial = new this.BABYLON.StandardMaterial(`highlight_material_${Date.now()}`, this.scene)
+        this.highlightMaterial.diffuseColor = new this.BABYLON.Color3(0.1, 0.3, 0.8) 
+        this.highlightMaterial.alpha = 1.0 // Fully opaque
+        this.highlightMaterial.backFaceCulling = false // Show both sides
+
         console.log('HighlightManager initialized')
     }
     
@@ -84,7 +91,7 @@ class HighlightManager {
         
         // Pick geometry at cursor position
         const pickInfo = this.scene.pick(x, y, (mesh) => {
-            return mesh.isPickable && mesh.name !== 'ground' && mesh.name !== 'skybox'
+            return mesh.isPickable && mesh.name !== 'ground' && mesh.name !== 'skybox' && mesh.name !== 'highlightLayer'
         })
         
         this.lastPickInfo = pickInfo
@@ -103,7 +110,7 @@ class HighlightManager {
     handleMeshHover(pickInfo) {
         const mesh = pickInfo.pickedMesh
         const faceId = pickInfo.faceId
-        
+
         // Check if we're hovering over the same face
         if (this.currentHoveredMesh === mesh && this.currentHoveredFace === faceId) {
             return // No change needed
@@ -118,12 +125,6 @@ class HighlightManager {
         
         // Apply new highlight based on mode
         switch (this.currentMode) {
-            case this.modes.MESH:
-                this.highlightMesh(mesh)
-                break
-            case this.modes.FACE:
-                this.highlightFace(mesh, faceId)
-                break
             case this.modes.PLANAR_SURFACE:
                 this.highlightPlanarSurface(mesh, faceId)
                 break
@@ -131,36 +132,6 @@ class HighlightManager {
                 // Always use connected faces for material assignment
                 this.highlightConnectedFacesForMaterialAssignment(mesh, faceId)
                 break
-        }
-    }
-    
-    /**
-     * Highlight an entire mesh
-     * @param {BABYLON.AbstractMesh} mesh - The mesh to highlight
-     */
-    highlightMesh(mesh) {
-        try {
-            this.hoverHighlightLayer.addMesh(mesh, this.meshHoverColor)
-            this.currentHighlightMesh = mesh
-        } catch (error) {
-            console.error('Error highlighting mesh:', error)
-        }
-    }
-    
-    /**
-     * Highlight a single face
-     * @param {BABYLON.AbstractMesh} mesh - The parent mesh
-     * @param {number} faceId - The face ID to highlight
-     */
-    highlightFace(mesh, faceId) {
-        try {
-            const faceMesh = this._createMeshFromFaces(mesh, [faceId])
-            if (faceMesh) {
-                this.hoverHighlightLayer.addMesh(faceMesh, this.faceHoverColor)
-                this.currentHighlightMesh = faceMesh
-            }
-        } catch (error) {
-            console.error('Error highlighting face:', error)
         }
     }
     
@@ -209,23 +180,6 @@ class HighlightManager {
     }
 
     /**
-     * Get information about the currently highlighted geometry for material assignment
-     * @returns {Object} Object containing mesh, faceId, and assignment info
-     */
-    getMaterialAssignmentInfo() {
-        return {
-            mesh: this.currentHoveredMesh,
-            faceId: this.currentHoveredFace,
-            mode: 'connected-faces',
-            pickInfo: this.lastPickInfo,
-            // Always return connected faces for material assignment
-            connectedFaces: this.currentHoveredMesh && this.currentHoveredFace !== null
-                ? this._findCoplanarConnectedFaces(this.currentHoveredMesh, this.currentHoveredFace)
-                : null
-        }
-    }
-    
-    /**
      * Clear all highlights
      */
     clearHighlight() {
@@ -247,37 +201,6 @@ class HighlightManager {
         }
     }
     
-    /**
-     * Get the currently hovered mesh and face info
-     * @returns {Object} Object containing mesh and faceId
-     */
-    getCurrentHover() {
-        return {
-            mesh: this.currentHoveredMesh,
-            faceId: this.currentHoveredFace,
-            pickInfo: this.lastPickInfo
-        }
-    }
-    
-    /**
-     * Set custom highlight color for current mode
-     * @param {BABYLON.Color3} color - The color to use
-     */
-    setHighlightColor(color) {
-        switch (this.currentMode) {
-            case this.modes.MESH:
-                this.meshHoverColor = color
-                break
-            case this.modes.FACE:
-            case this.modes.PLANAR_SURFACE:
-                this.faceHoverColor = color
-                break
-            case this.modes.MATERIAL_ASSIGNMENT:
-                this.materialAssignmentColor = color
-                break
-        }
-    }
-    
     // ===== MESH ANALYSIS METHODS (adapted from SelectionManager) =====
     
     /**
@@ -291,9 +214,14 @@ class HighlightManager {
             const indices = parentMesh.getIndices()
             const positions = parentMesh.getVerticesData(this.BABYLON.VertexBuffer.PositionKind)
             const normals = parentMesh.getVerticesData(this.BABYLON.VertexBuffer.NormalKind)
-            
-            if (!indices || !positions) return null
-            
+            const uvs = parentMesh.getVerticesData(this.BABYLON.VertexBuffer.UVKind);
+            const newUVs = []; // Initialize new UVs array
+
+            if (!indices || !positions) {
+                console.warn(`Failed to create mesh from faces: ${faceIds.join(", ")}`);
+                return null;
+            }
+
             const newIndices = []
             const newPositions = []
             const newNormals = []
@@ -307,9 +235,9 @@ class HighlightManager {
                     const originalVertexIndex = indices[baseIndex + i]
                     const positionIndex = originalVertexIndex * 3
                     
-                    // Create a unique key for this vertex position
-                    const vertexKey = `${positions[positionIndex]}_${positions[positionIndex + 1]}_${positions[positionIndex + 2]}`
-                    
+                    // Use the original index as the key
+                    const vertexKey = originalVertexIndex;
+
                     let newVertexIndex
                     if (vertexMap.has(vertexKey)) {
                         newVertexIndex = vertexMap.get(vertexKey)
@@ -333,6 +261,15 @@ class HighlightManager {
                                 normals[normalIndex + 2]
                             )
                         }
+                        
+                        // Add vertex UV if available
+                        if (uvs) {
+                            const uvIndex = originalVertexIndex * 2;
+                            newUVs.push(
+                                uvs[uvIndex],
+                                uvs[uvIndex + 1]
+                            );
+                        }
                     }
                     
                     newIndices.push(newVertexIndex)
@@ -340,7 +277,7 @@ class HighlightManager {
             }
             
             // Create the new mesh
-            const mesh = new this.BABYLON.Mesh(`highlight_${Date.now()}`, this.scene)
+            const mesh = new this.BABYLON.Mesh(`highlightLayer`, this.scene)
             
             const vertexData = new this.BABYLON.VertexData()
             vertexData.positions = newPositions
@@ -350,13 +287,22 @@ class HighlightManager {
             } else {
                 vertexData.normals = this.BABYLON.VertexData.ComputeNormals(newPositions, newIndices)
             }
+            if (newUVs.length > 0) {
+                vertexData.uvs = newUVs;
+            }
             
             vertexData.applyToMesh(mesh)
             
-            // Copy transform from parent
             // Set the transform of the new mesh to match the parent's final world transform
             mesh.setPreTransformMatrix(parentMesh.getWorldMatrix());
             
+            // Create a basic material to ensure visibility
+            mesh.material = this.highlightMaterial
+
+            // Make sure the mesh is pickable for highlighting but not for interaction
+            mesh.isPickable = false
+            mesh.visibility = 1.0;
+
             return mesh
         } catch (error) {
             console.error('Error creating mesh from faces:', error)

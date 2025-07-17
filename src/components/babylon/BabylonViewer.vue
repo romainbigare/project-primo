@@ -254,6 +254,8 @@ onMounted(async () => {
         snapManager.value.update();
     });
 
+    scene.value.debugLayer.show({ showExplorer: false });
+
     // Prevent scroll events from propagating to the page
     renderCanvas.value.addEventListener('wheel', onWheel, { passive: false })
     window.addEventListener('resize', onResize)
@@ -335,15 +337,24 @@ async function loadModelsInGrid(BABYLON, scene) {
 
     // create sample cubes as well for testing
     for (let i = 0; i < 10; i++) {
-        const cube = BABYLON.MeshBuilder.CreateBox(`sampleCube${i}`, { size : 0.5 }, scene)
+        const cube = BABYLON.MeshBuilder.CreateSphere(`sampleCube${i}`, { size : 0.5 }, scene)
         cube.position.x = (Math.random() - 0.5) * 10
         cube.position.y = 0.25
         cube.position.z = (Math.random() - 0.5) * 10
+
+        /*/
         cube.material = new BABYLON.StandardMaterial(`sampleCubeMat${i}`, scene)
         cube.material.diffuseColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random())
         cube.material.specularColor = new BABYLON.Color3(0, 0, 0) // No specular reflection
         cube.material.roughness = 0.5 // Slightly rough surface
         cube.material.metallic = 0.2 // Slight metallic effect
+        /*/
+        cube.material = new BABYLON.PBRMaterial(`sampleCubeMat${i}`, scene)
+        cube.material.baseColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random())
+        cube.material.roughnessFactor = Math.random() * 0.5 + 0.5 // Random roughness between 0.5 and 1.0
+        cube.material.metallicFactor = Math.random() * 0.2 // Random metallic between 0 and 0.2
+        cube.material.alpha = 1.0  // Fully opaque
+
         cube.receiveShadows = true // Enable shadow receiving
         if (shadowGenerator.value) {
             shadowGenerator.value.addShadowCaster(cube) // Add to shadow generator
@@ -352,7 +363,7 @@ async function loadModelsInGrid(BABYLON, scene) {
 
         enhanceMaterial(cube.material, BABYLON) // Enhance material for studio lighting
         
-        console.log(`Created sample cube ${i}`)
+        console.log(`Created sample cube ${i} with roughness ${cube.material.roughnessFactor} and metallic ${cube.material.metallicFactor}`)
     }
 
     console.log('All models loaded and positioned in grid')
@@ -362,14 +373,17 @@ function setupRealisticLighting(BABYLON, scene) {
     // Set a neutral studio background
     scene.clearColor = new BABYLON.Color3(1,1,1) // Light gray background
     
-    var hdrTexture = new BABYLON.CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/environments/environmentSpecular.env", scene);
+    var hdrTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/environments/studio.env", scene);
     scene.environmentTexture = hdrTexture;
+    
     // 1. Key light (Main directional light) - soft studio lighting
     const keyLight = new BABYLON.DirectionalLight(
         'keyLight',
         new BABYLON.Vector3(-0.5, -1, -0.3),
         scene
     )
+    scene.environmentIntensity = 0.5 // Lower environment intensity for studio look
+
     keyLight.intensity = 2.0
     keyLight.diffuse = new BABYLON.Color3(1, 1, 1) // Pure white light
     keyLight.specular = new BABYLON.Color3(0.8, 0.8, 0.8)

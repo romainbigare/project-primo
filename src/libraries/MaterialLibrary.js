@@ -185,11 +185,11 @@ export class MaterialLibrary {
         material.roughnessFactor = roughnessFactor
         material.alpha = alpha
         
-        // Lighting setup
-        material.environmentIntensity = 1.0
+        // Lighting setup - more realistic values
+        material.environmentIntensity = 0.5  // Reduced for less reflectivity
         material.directIntensity = 1.0
         material.emissiveIntensity = 0.0
-        material.specularIntensity = 1.0
+        material.specularIntensity = 0.8  // Reduced for less shininess
         
         // Rendering properties
         material.backFaceCulling = true
@@ -204,13 +204,20 @@ export class MaterialLibrary {
 
     createBasicMaterials() {
         // White Concrete
-        const whiteConcrete = this.createPBRMaterial('whiteConcrete', new this.BABYLON.Color3(0.9, 0.9, 0.9), 0.0, 0.8)
+        const whiteConcrete = new this.BABYLON.PBRMaterial('whiteConcrete', this.scene)
+        whiteConcrete.baseColor = new this.BABYLON.Color3(0.9, 0.9, 0.9)
+        whiteConcrete.roughnessFactor = 0.8
+        whiteConcrete.metallicFactor = 0.0
+        whiteConcrete.alpha = 1.0  // Fully opaque
+        
+        //this.createPBRMaterial('whiteConcrete', new this.BABYLON.Color3(0.9, 0.9, 0.9), 0.0, 0.8)
         this.materials.set('whiteConcrete', {
             material: whiteConcrete,
             name: 'White Concrete',
             category: 'Basic',
             description: 'Clean white concrete finish'
         })
+
 
         // Red Brick
         const redBrick = this.createPBRMaterial('redBrick', new this.BABYLON.Color3(0.7, 0.3, 0.2), 0.0, 0.9)
@@ -251,7 +258,7 @@ export class MaterialLibrary {
         })
 
         // Gold
-        const gold = this.createPBRMaterial('gold', new this.BABYLON.Color3(1.0, 0.86, 0.57), 1.0, 0.1)
+        const gold = this.createPBRMaterial('gold', new this.BABYLON.Color3(1.0, 0.86, 0.57), 1.0, 0.2)  // Increased roughness
         this.materials.set('gold', {
             material: gold,
             name: 'Gold',
@@ -282,7 +289,7 @@ export class MaterialLibrary {
 
     createStoneMaterials() {
         // Marble
-        const marble = this.createPBRMaterial('marble', new this.BABYLON.Color3(0.95, 0.95, 0.95), 0.0, 0.1)
+        const marble = this.createPBRMaterial('marble', new this.BABYLON.Color3(0.95, 0.95, 0.95), 0.0, 0.3)  // Increased roughness
         this.materials.set('marble', {
             material: marble,
             name: 'White Marble',
@@ -302,7 +309,7 @@ export class MaterialLibrary {
 
     createGlassMaterials() {
         // Clear Glass
-        const clearGlass = this.createPBRMaterial('clearGlass', new this.BABYLON.Color3(0.9, 0.9, 0.9), 0.0, 0.0, 0.3)
+        const clearGlass = this.createPBRMaterial('clearGlass', new this.BABYLON.Color3(0.9, 0.9, 0.9), 0.0, 0.1, 0.3)  // Keep low roughness for glass
         this.materials.set('clearGlass', {
             material: clearGlass,
             name: 'Clear Glass',
@@ -311,7 +318,7 @@ export class MaterialLibrary {
         })
 
         // Blue Glass
-        const blueGlass = this.createPBRMaterial('blueGlass', new this.BABYLON.Color3(0.3, 0.6, 0.9), 0.0, 0.0, 0.4)
+        const blueGlass = this.createPBRMaterial('blueGlass', new this.BABYLON.Color3(0.3, 0.6, 0.9), 0.0, 0.1, 0.4)  // Keep low roughness for glass
         this.materials.set('blueGlass', {
             material: blueGlass,
             name: 'Blue Glass',
@@ -410,6 +417,9 @@ export class MaterialLibrary {
             Array.from(connectedFaces).forEach(faceId => {
                 mesh._faceMaterials.set(faceId, materialName)
             })
+
+            var m = this.materials.get(materialName).material
+            this.scene.debugLayer.select(m, "RENDERING");
 
             return true
         } catch (error) {
@@ -816,12 +826,12 @@ export class MaterialLibrary {
                 newMaterial.transparencyMode = originalMaterial.transparencyMode
             }
             
-            // Lighting setup
-            newMaterial.environmentIntensity = 1.0
-            newMaterial.directIntensity = 1.0
-            newMaterial.emissiveIntensity = 0.0
-            newMaterial.specularIntensity = 1.0
-            newMaterial.backFaceCulling = true
+            // Copy lighting properties from original material
+            newMaterial.environmentIntensity = originalMaterial.environmentIntensity !== undefined ? originalMaterial.environmentIntensity : 1.0
+            newMaterial.directIntensity = originalMaterial.directIntensity !== undefined ? originalMaterial.directIntensity : 1.0
+            newMaterial.emissiveIntensity = originalMaterial.emissiveIntensity !== undefined ? originalMaterial.emissiveIntensity : 0.0
+            newMaterial.specularIntensity = originalMaterial.specularIntensity !== undefined ? originalMaterial.specularIntensity : 1.0
+            newMaterial.backFaceCulling = originalMaterial.backFaceCulling !== undefined ? originalMaterial.backFaceCulling : true
             
             return newMaterial
         } else {
