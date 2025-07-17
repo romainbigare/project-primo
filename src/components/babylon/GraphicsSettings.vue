@@ -1,18 +1,9 @@
 <template>
     <div class="graphics-settings-container">
-        <!-- Settings Button -->
-        <Button 
-            icon="pi pi-cog" 
-            class="settings-button" 
-            @click="showDialog = true"
-            severity="secondary"
-            rounded
-            text
-        />
-        
         <!-- Settings Dialog -->
         <Dialog 
-            v-model:visible="showDialog" 
+            :visible="visible" 
+            @update:visible="$emit('update:visible', $event)"
             modal 
             header="Graphics Settings"
             :style="{ width: '450px' }"
@@ -212,8 +203,8 @@
                         <label>Edge Width</label>
                         <Slider 
                             v-model="settings.edgeWidth" 
-                            :min="0.5" 
-                            :max="5" 
+                            :min="0.1" 
+                            :max="8" 
                             :step="0.1"
                             @update:modelValue="updateEdges"
                         />
@@ -226,7 +217,19 @@
                             binary
                             @update:modelValue="updateEdges"
                         />
-                        <label>Sketch-style Edges (Irregular)</label>
+                        <label>Sketch-style Edges (Post Process)</label>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.showEdges && settings.sketchEdges">
+                        <label>Edge Intensity</label>
+                        <Slider 
+                            v-model="settings.edgeIntensity" 
+                            :min="0.1" 
+                            :max="2" 
+                            :step="0.1"
+                            @update:modelValue="updateEdges"
+                        />
+                        <span class="value-display">{{ settings.edgeIntensity }}</span>
                     </div>
                     
                     <div class="setting-item checkbox-item">
@@ -260,23 +263,185 @@
                     </div>
                 </div>
 
+                <!-- Post-Processing Effects -->
+                <div class="setting-group">
+                    <h4>Post-Processing Effects</h4>
+                    
+                    <div class="setting-item checkbox-item">
+                        <Checkbox 
+                            v-model="settings.fxaa" 
+                            binary
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <label>FXAA (Anti-aliasing)</label>
+                    </div>
+                    
+                    <div class="setting-item checkbox-item">
+                        <Checkbox 
+                            v-model="settings.bloom" 
+                            binary
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <label>Bloom</label>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.bloom">
+                        <label>Bloom Weight</label>
+                        <Slider 
+                            v-model="settings.bloomWeight" 
+                            :min="0" 
+                            :max="1" 
+                            :step="0.05"
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <span class="value-display">{{ settings.bloomWeight }}</span>
+                    </div>
+                </div>
+
+                <!-- Color Correction -->
+                <div class="setting-group">
+                    <h4>Color Correction</h4>
+                    
+                    <div class="setting-item checkbox-item">
+                        <Checkbox 
+                            v-model="settings.colorCurves" 
+                            binary
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <label>Color Curves</label>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.colorCurves">
+                        <label>Global Hue</label>
+                        <Slider 
+                            v-model="settings.globalHue" 
+                            :min="0" 
+                            :max="360" 
+                            :step="1"
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <span class="value-display">{{ settings.globalHue }}</span>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.colorCurves">
+                        <label>Global Density</label>
+                        <Slider 
+                            v-model="settings.globalDensity" 
+                            :min="0" 
+                            :max="100" 
+                            :step="1"
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <span class="value-display">{{ settings.globalDensity }}</span>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.colorCurves">
+                        <label>Global Saturation</label>
+                        <Slider 
+                            v-model="settings.globalSaturation" 
+                            :min="0" 
+                            :max="100" 
+                            :step="1"
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <span class="value-display">{{ settings.globalSaturation }}</span>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.colorCurves">
+                        <label>Highlights Hue</label>
+                        <Slider 
+                            v-model="settings.highlightsHue" 
+                            :min="0" 
+                            :max="360" 
+                            :step="1"
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <span class="value-display">{{ settings.highlightsHue }}</span>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.colorCurves">
+                        <label>Highlights Density</label>
+                        <Slider 
+                            v-model="settings.highlightsDensity" 
+                            :min="0" 
+                            :max="100" 
+                            :step="1"
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <span class="value-display">{{ settings.highlightsDensity }}</span>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.colorCurves">
+                        <label>Highlights Saturation</label>
+                        <Slider 
+                            v-model="settings.highlightsSaturation" 
+                            :min="-100" 
+                            :max="100" 
+                            :step="1"
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <span class="value-display">{{ settings.highlightsSaturation }}</span>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.colorCurves">
+                        <label>Shadows Hue</label>
+                        <Slider 
+                            v-model="settings.shadowsHue" 
+                            :min="0" 
+                            :max="360" 
+                            :step="1"
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <span class="value-display">{{ settings.shadowsHue }}</span>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.colorCurves">
+                        <label>Shadows Density</label>
+                        <Slider 
+                            v-model="settings.shadowsDensity" 
+                            :min="0" 
+                            :max="100" 
+                            :step="1"
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <span class="value-display">{{ settings.shadowsDensity }}</span>
+                    </div>
+                    
+                    <div class="setting-item" v-if="settings.colorCurves">
+                        <label>Shadows Saturation</label>
+                        <Slider 
+                            v-model="settings.shadowsSaturation" 
+                            :min="-100" 
+                            :max="100" 
+                            :step="1"
+                            @update:modelValue="updatePostProcessing"
+                        />
+                        <span class="value-display">{{ settings.shadowsSaturation }}</span>
+                    </div>
+                </div>
+
             </div>
             
             <template #footer>
-                <Button label="Reset to Default" @click="resetSettings" severity="secondary" />
-                <Button label="Close" @click="showDialog = false" />
+                <Button label="Save" @click="saveSettings" severity="secondary" />
+                <Button label="Load" @click="loadSettings" severity="secondary" />
+                <Button label="Reset" @click="resetSettings" severity="secondary" />
+                <Button label="Close" @click="$emit('update:visible', false)" />
             </template>
         </Dialog>
     </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Slider from 'primevue/slider'
 import Checkbox from 'primevue/checkbox'
 import ColorPicker from 'primevue/colorpicker'
+
+const toast = useToast()
 
 // --- Props and State (Unchanged) ---
 const props = defineProps({
@@ -284,67 +449,212 @@ const props = defineProps({
     lights: Object,
     ground: Object,
     shadowGenerator: Object,
-    meshes: Array
+    meshes: Array,
+    visible: Boolean,
+    pipeline: Object // Added pipeline prop
 })
 
-const showDialog = ref(false)
+const emit = defineEmits(['update:visible'])
 
 const settings = reactive({
     keyLightIntensity: 2.0,
     fillLightIntensity: 1.0,
-    ambientIntensity: 0.8,
-    sunAngleX: -0.5,
+    ambientIntensity: 0.9,
+    sunAngleX: 0.4,
     sunAngleY: -1,
-    sunAngleZ: -0.3,
+    sunAngleZ: -1.2,
     shadowDarkness: 0.4,
     shadowBlur: 1.2,
     groundOpacity: 0.1,
     showGround: true,
-    exposure: 0.8,
+    exposure: 1.0,
     contrast: 1.1,
     showEdges: false,
     edgeColor: '#000000',
     edgeWidth: 1.0,
     sketchEdges: false,
+    edgeIntensity: 1.0,
     whiteMaterials: false,
     watercolorEffect: false,
-    watercolorIntensity: 1.0
+    watercolorIntensity: 1.0,
+    // Post-processing
+    fxaa: false,
+    bloom: false,
+    bloomWeight: 0.5,
+    // Color Correction
+    colorCurves: false,
+    globalHue: 200,
+    globalDensity: 80,
+    globalSaturation: 80,
+    highlightsHue: 20,
+    highlightsDensity: 80,
+    highlightsSaturation: -80,
+    shadowsHue: 2,
+    shadowsDensity: 80,
+    shadowsSaturation: 40
 })
 
 const defaultSettings = JSON.parse(JSON.stringify(settings))
 let originalMaterials = new Map()
+let edgeDetectionPostProcess = null
+
+// Load saved settings when component is mounted
+onMounted(() => {
+    loadSettings(false) // Don't show feedback on auto-load
+})
 
 function updateKeyLight() { if (props.lights?.keyLight) props.lights.keyLight.intensity = settings.keyLightIntensity }
 function updateFillLight() { if (props.lights?.fillLight) props.lights.fillLight.intensity = settings.fillLightIntensity }
 function updateAmbientLight() { if (props.lights?.ambientLight) props.lights.ambientLight.intensity = settings.ambientIntensity }
-function updateSunPosition() { if (props.lights?.keyLight) props.lights.keyLight.direction = new BABYLON.Vector3(settings.sunAngleX, settings.sunAngleY, settings.sunAngleZ) }
+function updateSunPosition() { 
+    if (!props.lights?.keyLight) return;
+    
+    import('babylonjs').then(BABYLON => {
+        props.lights.keyLight.direction = new BABYLON.Vector3(settings.sunAngleX, settings.sunAngleY, settings.sunAngleZ);
+    });
+}
 function updateShadows() { if (props.shadowGenerator) { props.shadowGenerator.darkness = settings.shadowDarkness; props.shadowGenerator.blurScale = settings.shadowBlur } }
 function updateGround() { if (props.ground) { props.ground.visibility = settings.showGround ? 1.0 : 0.0; if (props.ground.material) props.ground.material.alpha = settings.groundOpacity } }
 function updateImageProcessing() { if (props.scene?.imageProcessingConfiguration) { props.scene.imageProcessingConfiguration.exposure = settings.exposure; props.scene.imageProcessingConfiguration.contrast = settings.contrast } }
 
+let colorCurvesInstance = null; // Declare a variable to hold the single instance of ColorCurves
+
+function updatePostProcessing() {
+    if (!props.pipeline) return;
+
+    import('babylonjs').then(BABYLON => { // Import Babylon.js inside the function
+        props.pipeline.fxaaEnabled = settings.fxaa;
+        props.pipeline.bloomEnabled = settings.bloom;
+        props.pipeline.bloomWeight = settings.bloomWeight;
+       
+        if (props.pipeline.imageProcessing) {
+            props.pipeline.imageProcessing.colorCurvesEnabled = settings.colorCurves;
+            if (settings.colorCurves) {
+                // Create the ColorCurves instance only once
+                if (!colorCurvesInstance) {
+                    colorCurvesInstance = new BABYLON.ColorCurves();
+                }
+
+                // Update the properties of the existing instance
+                colorCurvesInstance.globalHue = settings.globalHue;
+                colorCurvesInstance.globalDensity = settings.globalDensity;
+                colorCurvesInstance.globalSaturation = settings.globalSaturation;
+                colorCurvesInstance.highlightsHue = settings.highlightsHue;
+                colorCurvesInstance.highlightsDensity = settings.highlightsDensity;
+                colorCurvesInstance.highlightsSaturation = settings.highlightsSaturation;
+                colorCurvesInstance.shadowsHue = settings.shadowsHue;
+                colorCurvesInstance.shadowsDensity = settings.shadowsDensity;
+                colorCurvesInstance.shadowsSaturation = settings.shadowsSaturation;
+                
+                // Assign the instance to the pipeline (only needs to be done once, but safe to do here)
+                props.pipeline.imageProcessing.colorCurves = colorCurvesInstance;
+            } else {
+                // If color curves are disabled, you might want to dispose of the instance
+                // to free up resources, or just leave it for potential re-enabling.
+                // For now, setting colorCurvesEnabled to false is sufficient to disable the effect.
+                if (colorCurvesInstance) {
+                    // If you want to dispose it:
+                    // colorCurvesInstance.dispose(); 
+                    // colorCurvesInstance = null;
+                }
+            }
+        }
+    });
+}
+
 function updateEdges() {
     if (!props.scene || !props.meshes) return
     
-    import('babylonjs').then(BABYLON => {
-        const edgeColor = BABYLON.Color3.FromHexString(settings.edgeColor)
+    Promise.all([
+        import('babylonjs'),
+        import('@babylonjs/post-processes/edgeDetection/edgeDetectionPostProcess'),
+    ]).then(([BABYLON, { EdgeDetectionPostProcess }]) => {
+        const edgeColor = BABYLON.Color3.FromHexString('#'+settings.edgeColor)
         
-        props.meshes.forEach(mesh => {
-            if (!mesh) return
-            
-            if (settings.showEdges) {
-                mesh.enableEdgesRendering()
-                mesh.edgesColor = edgeColor
-                
-                // The sketch effect is basic, but now it correctly modifies the width
-                if (settings.sketchEdges) {
-                    mesh.edgesWidth = settings.edgeWidth * (1 + (Math.random() - 0.5) * 0.4)
-                } else {
-                    mesh.edgesWidth = settings.edgeWidth
-                }
-            } else {
-                mesh.disableEdgesRendering()
+        // Handle edge detection post process for sketch-style edges
+        if (settings.showEdges && settings.sketchEdges) {
+            // Remove existing post process if it exists
+            if (edgeDetectionPostProcess) {
+                edgeDetectionPostProcess.dispose()
+                edgeDetectionPostProcess = null
             }
-        })
+            
+            // Create new edge detection post process
+            const camera = props.scene.activeCamera
+            if (camera) {
+                try {
+                    // Enable geometry buffer renderer if not already enabled
+                    if (!props.scene.geometryBufferRenderer) {
+                        props.scene.enableGeometryBufferRenderer()
+                    }
+                    
+                    // Use the imported EdgeDetectionPostProcess class
+                    // Pass ratio as a fraction (0.5 for half resolution, 1.0 for full resolution)
+                    const options = {
+                        size: 1.0,
+                    }
+                    edgeDetectionPostProcess = new EdgeDetectionPostProcess("EdgeDetection", props.scene, options, camera)
+                    edgeDetectionPostProcess.edgeWidth = settings.edgeWidth
+                    edgeDetectionPostProcess.edgeIntensity = settings.edgeIntensity
+                    edgeDetectionPostProcess.edgeColor = edgeColor
+                } catch (error) {
+                    console.error('Failed to create EdgeDetectionPostProcess:', error)
+                }
+            }
+            
+            // Disable mesh-based edge rendering when using post process
+            props.meshes.forEach(mesh => {
+                if (mesh) {
+                    try {
+                        mesh.disableEdgesRendering()
+                    } catch (error) {
+                        console.warn('Failed to disable edge rendering for mesh:', mesh.name, error)
+                    }
+                }
+            })
+        } else if (settings.showEdges && !settings.sketchEdges) {
+            // Dispose of post process if using mesh-based edges
+            if (edgeDetectionPostProcess) {
+                edgeDetectionPostProcess.dispose()
+                edgeDetectionPostProcess = null
+            }
+            
+            // Use mesh-based edge rendering
+            props.meshes.forEach(mesh => {
+                if (!mesh) return
+                
+                try {
+                    // Check if the mesh has geometry data and is not already rendering edges
+                    if (mesh.geometry || mesh._geometry) {
+                        mesh.enableEdgesRendering(0.2)
+                        mesh.edgesColor = BABYLON.Color4.FromColor3(edgeColor, 1.0)
+                        mesh.edgesWidth = settings.edgeWidth
+                    } else {
+                        console.warn('Mesh does not have geometry for edge rendering:', mesh.name)
+                    }
+                } catch (error) {
+                    console.warn('Failed to enable edge rendering for mesh:', mesh.name, error)
+                }
+            })
+        } else {
+            // Disable all edge rendering
+            if (edgeDetectionPostProcess) {
+                edgeDetectionPostProcess.dispose()
+                edgeDetectionPostProcess = null
+            }
+            
+            props.meshes.forEach(mesh => {
+                if (mesh) {
+                    try {
+                        mesh.disableEdgesRendering()
+                    } catch (error) {
+                        console.warn('Failed to disable edge rendering for mesh:', mesh.name, error)
+                    }
+                }
+            })
+        }
+    }).catch(error => {
+        console.error('Error importing Babylon.js for edge rendering:', error)
     })
 }
 
@@ -419,8 +729,102 @@ function updateMaterials() {
 }
 
 // --- Helper Functions (hexToColor3 is removed as Babylon.js has a built-in) ---
+function saveSettings() {
+    try {
+        const settingsToSave = JSON.stringify(settings)
+        localStorage.setItem('babylonGraphicsSettings', settingsToSave)
+        console.log('Graphics settings saved successfully')
+        
+        // Show success toast
+        toast.add({
+            severity: 'success',
+            summary: 'Settings Saved',
+            detail: 'Graphics settings saved successfully!',
+            life: 3000
+        })
+        
+    } catch (error) {
+        console.error('Failed to save graphics settings:', error)
+        
+        // Show error toast
+        toast.add({
+            severity: 'error',
+            summary: 'Save Failed',
+            detail: 'Failed to save settings',
+            life: 3000
+        })
+    }
+}
+
+function loadSettings(showFeedback = true) {
+    try {
+        const savedSettings = localStorage.getItem('babylonGraphicsSettings')
+        if (savedSettings) {
+            const parsedSettings = JSON.parse(savedSettings)
+            Object.assign(settings, parsedSettings)
+            
+            // Apply all the loaded settings
+            updateKeyLight()
+            updateFillLight()
+            updateAmbientLight()
+            updateSunPosition()
+            updateShadows()
+            updateGround()
+            updateImageProcessing()
+            updateEdges()
+            updateMaterials()
+            updatePostProcessing()
+            
+            console.log('Graphics settings loaded successfully')
+            
+            // Show success toast only if feedback is requested
+            if (showFeedback) {
+                toast.add({
+                    severity: 'success',
+                    summary: 'Settings Loaded',
+                    detail: 'Settings loaded successfully!',
+                    life: 3000
+                })
+            }
+            
+            return true
+        } else {
+            // Show info toast when no saved settings exist (only if feedback requested)
+            if (showFeedback) {
+                toast.add({
+                    severity: 'info',
+                    summary: 'No Saved Settings',
+                    detail: 'No saved settings found',
+                    life: 3000
+                })
+            }
+            return false
+        }
+    } catch (error) {
+        console.error('Failed to load graphics settings:', error)
+        
+        // Show error toast only if feedback is requested
+        if (showFeedback) {
+            toast.add({
+                severity: 'error',
+                summary: 'Load Failed',
+                detail: 'Failed to load settings',
+                life: 3000
+            })
+        }
+        
+        return false
+    }
+}
+
 function resetSettings() {
     Object.assign(settings, JSON.parse(JSON.stringify(defaultSettings)))
+    
+    // Clean up post process
+    if (edgeDetectionPostProcess) {
+        edgeDetectionPostProcess.dispose()
+        edgeDetectionPostProcess = null
+    }
     
     // Trigger all update functions
     updateKeyLight()
@@ -432,118 +836,83 @@ function resetSettings() {
     updateImageProcessing()
     updateEdges()
     updateMaterials()
+    updatePostProcessing()
 
     // Restore original materials explicitly on reset
     if (originalMaterials.size > 0) {
         props.meshes.forEach(mesh => {
             if (mesh && originalMaterials.has(mesh.id)) {
-                 // Dispose of temp materials before restoring
-                if (mesh.material.name.includes('_watercolor') || mesh.material.name === 'whiteMaterial') {
-                    // Be careful not to dispose the shared whiteMaterial if another mesh still uses it
-                } else {
-                     mesh.material = originalMaterials.get(mesh.id)
+                const originalMaterial = originalMaterials.get(mesh.id)
+                if (mesh.material !== originalMaterial) {
+                    // If the current material is a clone or temporary, dispose it
+                    if (mesh.material && (mesh.material.name.includes('_watercolor') || mesh.material.name === 'whiteMaterial')) {
+                        // Do not dispose the shared white material, it's managed by the scene
+                        if (!mesh.material.name.includes('whiteMaterial')) {
+                             mesh.material.dispose()
+                        }
+                    }
+                    mesh.material = originalMaterial
                 }
             }
         })
+        originalMaterials.clear()
     }
 }
 </script>
 
 <style scoped>
-.graphics-settings-container {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 1000;
+.graphics-settings-container .p-dialog-content {
+    padding: 1.5rem;
+    background-color: #f8f9fa;
 }
-
-.settings-button {
-    background: rgba(255, 255, 255, 0.1) !important;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #666 !important;
-    width: 48px;
-    height: 48px;
-    transition: all 0.3s ease;
-}
-
-.settings-button:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
-    color: #333 !important;
-    transform: rotate(45deg);
-}
-
-.graphics-dialog .settings-content {
-    max-height: 600px;
-    overflow-y: auto;
-}
-
 .setting-group {
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #eee;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 1.5rem;
 }
-
 .setting-group:last-child {
     border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
 }
-
 .setting-group h4 {
-    margin: 0 0 16px 0;
-    color: #333;
+    margin-top: 0;
+    margin-bottom: 1.5rem;
     font-weight: 600;
+    color: #495057;
 }
-
 .setting-item {
     display: flex;
     align-items: center;
-    margin-bottom: 16px;
-    gap: 12px;
+    margin-bottom: 1.2rem;
+    gap: 1rem;
 }
-
 .setting-item label {
-    min-width: 140px;
-    font-weight: 500;
-    color: #555;
-}
-
-.setting-item .p-slider {
     flex: 1;
+    font-size: 0.9rem;
+    color: #6c757d;
 }
-
-.value-display {
-    min-width: 40px;
+.setting-item .p-slider {
+    flex: 2;
+}
+.setting-item .value-display {
+    flex-basis: 50px;
     text-align: right;
-    font-family: monospace;
-    color: #666;
-    font-size: 0.9em;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
 }
-
 .checkbox-item {
-    gap: 8px;
+    justify-content: flex-start;
 }
-
 .checkbox-item label {
-    min-width: auto;
-    margin-left: 8px;
+    margin-left: 0.5rem;
+    flex: unset;
 }
-
-/* Custom scrollbar for dialog content */
-.settings-content::-webkit-scrollbar {
-    width: 6px;
+.graphics-dialog .p-dialog-header {
+    background-color: #6366F1;
+    color: white;
 }
-
-.settings-content::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.settings-content::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
-
-.settings-content::-webkit-scrollbar-thumb:hover {
-    background: #a1a1a1;
+.graphics-dialog .p-dialog-header-icon {
+    color: white !important;
 }
 </style>

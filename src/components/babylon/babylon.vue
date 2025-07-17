@@ -2,22 +2,29 @@
     <div ref="renderCanvasContainer" class="babylon-container">
         <canvas ref="renderCanvas" class="babylon-canvas"></canvas>
         
-        <!-- Modeling Toolbar -->
-        <ModelingToolbar 
+        <!-- View Toolbar -->
+        <ViewToolbar 
+            ref="viewToolbar"
             :scene="scene"
-            :canvas="renderCanvas"
-            :selectionManager="selectionManager"
-            @tool-changed="onToolChanged"
-            @selection-changed="onSelectionChanged"
-        />
-        
-        <!-- Graphics Settings Popup -->
-        <GraphicsSettings 
-            :scene="scene"
+            :camera="camera"
+            :viewManager="viewManager"
             :lights="lights"
             :ground="ground"
             :shadowGenerator="shadowGenerator"
             :meshes="allMeshes"
+            :pipeline="pipeline"
+            @tool-changed="onViewToolChanged"
+        />
+        
+        <!-- Modeling Toolbar -->
+        <ModelingToolbar 
+            ref="modelingToolbar"
+            :scene="scene"
+            :canvas="renderCanvas"
+            :selectionManager="selectionManager"
+            :snapManager="snapManager"
+            @tool-changed="onModelingToolChanged"
+            @selection-changed="onSelectionChanged"
         />
     </div>
 </template>
@@ -60,9 +67,11 @@
 
 <script setup>
 import { onMounted, ref, onBeforeUnmount } from 'vue'
-import GraphicsSettings from './GraphicsSettings.vue'
+import ViewToolbar from './ViewToolbar.vue'
 import ModelingToolbar from './ModelingToolbar.vue'
 import SelectionManager from './utils/SelectionManager.js'
+import ViewManager from './utils/ViewManager.js'
+import SnapManager from './utils/SnapManager.js'
 
 let engine = null
 let scene = ref(null)
@@ -74,14 +83,20 @@ const ground = ref(null)
 const shadowGenerator = ref(null)
 const allMeshes = ref([])
 const selectionManager = ref(null)
+const viewManager = ref(null)
+const snapManager = ref(null)
+const camera = ref(null)
+const pipeline = ref(null)
 
 const renderCanvas = ref(null)
+const viewToolbar = ref(null)
+const modelingToolbar = ref(null)
 
 onMounted(async () => {
     // Dynamically import Babylon.js to avoid SSR issues
     BABYLON = await import('babylonjs')
     await import('babylonjs-loaders')
-
+    
     // Check if WebGPU is supported
     const webgpuSupported = await BABYLON.WebGPUEngine.IsSupportedAsync
     
@@ -108,29 +123,13 @@ onMounted(async () => {
     }
 
     scene.value = new BABYLON.Scene(engine)
-
-    // Initialize SelectionManager with scene and BABYLON library
-    try {
-        selectionManager.value = new SelectionManager(scene.value, BABYLON)
-        
-        // Set up selection change callback
-        selectionManager.value.setSelectionChangedCallback((selectionData) => {
-            onSelectionChanged(selectionData)
-        })
-        
-        console.log('SelectionManager initialized successfully')
-    } catch (error) {
-        console.error('Error initializing SelectionManager:', error)
-    }
-
-    // Enable PBR (Physically Based Rendering) for realistic materials
     scene.value.imageProcessingConfiguration.toneMappingEnabled = true
     scene.value.imageProcessingConfiguration.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES
-    scene.value.imageProcessingConfiguration.exposure = 0.8 // Slightly reduce exposure for softer look
+    scene.value.imageProcessingConfiguration.exposure = 1.0 // Slightly reduce exposure for softer look
     scene.value.imageProcessingConfiguration.contrast = 1.1 // Slight contrast boost
 
     // Camera - positioned higher to see the grid
-    const camera = new BABYLON.ArcRotateCamera(
+    camera.value = new BABYLON.ArcRotateCamera(
         'camera',
         Math.PI / 2,
         Math.PI / 4,
@@ -138,28 +137,63 @@ onMounted(async () => {
         BABYLON.Vector3.Zero(),
         scene.value
     )
-    camera.attachControl(renderCanvas.value, true)
+    camera.value.attachControl(renderCanvas.value, true)
     
-    // Enable zoom towards cursor position
-    camera.zoomToMouseLocation = true
-    camera.wheelPrecision = 10 // Adjust zoom sensitivity
-    camera.pinchPrecision = 200 // Adjust pinch sensitivity for touch devices
-    // Reduce floating/momentum by adjusting inertia and damping
-    camera.inertia = 0.1 // Reduce momentum (default is 0.9, lower = less floating)
-    camera.panningInertia = 0.1 // Reduce panning momentum
-    camera.angularSensibilityX = 200 // Adjust rotation sensitivity
-    camera.angularSensibilityY = 200 // Adjust rotation sensitivity
-    camera.panningSensibility = 100 // Adjust panning sensitivity
+
+    // Setup post-processing pipeline
+    pipeline.value = new BABYLON.DefaultRenderingPipeline(
+        "defaultPipeline", // The name of the pipeline
+        true, // Do you want the pipeline to use HDR texture?
+        scene.value, // The scene instance
+        [camera.value] // The list of cameras to attach the pipeline to
+    );
+    // Disable effects by default, they will be controlled by GraphicsSettings
+    pipeline.value.bloomEnabled = false;
+    pipeline.value.fxaaEnabled = false;
+    pipeline.value.imageProcessing.colorCurvesEnabled = false;
+    engine.setHardwareScalingLevel(.5)
+
+
+    // LOAD ALL MANAGERS // 
+    // Initialize SelectionManager with scene and BABYLON library
+    try {
+        selectionManager.value = new SelectionManager(scene.value, BABYLON)
+        selectionManager.value.setSelectionChangedCallback((selectionData) => {
+            onSelectionChanged(selectionData)
+        })
+        console.log('SelectionManager initialized successfully')
+    } catch (error) {
+        console.error('Error initializing SelectionManager:', error)
+    }
+
+    // Initialize ViewManager with camera and scene
+    try {
+        viewManager.value = new ViewManager(camera.value, scene.value, renderCanvas.value, BABYLON)
+        console.log('ViewManager initialized successfully')
+        viewManager.value.setSensibility();
+    } catch (error) {
+        console.error('Error initializing ViewManager:', error)
+    }
+
+    // Initialize SnapManager with scene and canvas
+    try {
+        snapManager.value = new SnapManager(scene.value)
+        console.log('SnapManager initialized successfully')
+    } catch (error) {
+        console.error('Error initializing SnapManager:', error)
+    }
 
     // Set up realistic lighting
     setupRealisticLighting(BABYLON, scene.value)
-
-    // Load GLB models in a 6x6 grid
     await loadModelsInGrid(BABYLON, scene.value)
 
     engine.runRenderLoop(() => {
         scene.value.render()
     })
+
+    scene.value.onBeforeRenderObservable.add(() => {
+        snapManager.value.update();
+    });
 
     // Prevent scroll events from propagating to the page
     renderCanvas.value.addEventListener('wheel', onWheel, { passive: false })
@@ -211,7 +245,7 @@ async function loadModelsInGrid(BABYLON, scene) {
                     if (mesh.material) {
                         allMeshes.value.push(mesh)
                     }
-                    
+
                     if (mesh.parent === null) { // Only move root meshes
                         mesh.position.x = x
                         mesh.position.z = z
@@ -222,8 +256,7 @@ async function loadModelsInGrid(BABYLON, scene) {
                     if (mesh.material) {
                         enhanceMaterial(mesh.material, BABYLON)
                     }
-                    
-                    // Enable shadow casting for this mesh
+
                     if (shadowGenerator.value) {
                         shadowGenerator.value.addShadowCaster(mesh)
                     }
@@ -301,7 +334,7 @@ function setupRealisticLighting(BABYLON, scene) {
         new BABYLON.Vector3(0, 1, 0),
         scene
     )
-    ambientLight.intensity = 0.8
+    ambientLight.intensity = 0.9
     ambientLight.diffuse = new BABYLON.Color3(0.95, 0.95, 1.0) // Very soft cool ambient
     ambientLight.groundColor = new BABYLON.Color3(0.8, 0.8, 0.8) // Neutral ground reflection
 
@@ -377,19 +410,35 @@ function onResize() {
 }
 
 function onWheel(event) {
-    // Prevent the scroll event from bubbling up to the document
-    event.preventDefault()
-    event.stopPropagation()
-    
-    // The camera controls will still handle the wheel event for zooming
-    // since Babylon.js attaches its own wheel listeners directly to the canvas
+    // Only prevent default if we're not in a custom view mode that handles its own wheel events
+    if (!viewManager.value || viewManager.value.getCurrentMode() === 'orbit') {
+        // Prevent the scroll event from bubbling up to the document
+        event.preventDefault()
+        event.stopPropagation()
+        
+        // The camera controls will still handle the wheel event for zooming
+        // since Babylon.js attaches its own wheel listeners directly to the canvas
+    }
 }
 
 // Modeling Toolbar Event Handlers
 let currentCamera = null
 
-function onToolChanged(data) {
+function onViewToolChanged(data) {
+    console.log(`View tool changed to: ${data.tool}`)
+    
+    if (modelingToolbar.value) {
+            modelingToolbar.value.deactivateModelingTools()
+    }
+}
+
+function onModelingToolChanged(data) {
     console.log('Active modeling tool changed:', data.tool)
+    
+    // When a modeling tool is activated, deactivate view tools (return to orbit)
+    if (data.tool && viewToolbar.value) {
+        viewToolbar.value.deactivateViewTools()
+    }
     
     // Store camera reference if not already stored
     if (!currentCamera && scene.value) {
@@ -420,6 +469,12 @@ onBeforeUnmount(() => {
     }
     if (selectionManager.value) {
         selectionManager.value.dispose()
+    }
+    if (viewManager.value) {
+        viewManager.value.dispose()
+    }
+    if (snapManager.value) {
+        snapManager.value.dispose()
     }
     if (engine) {
         engine.dispose()

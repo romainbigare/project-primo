@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import Babylon from '../components/babylon/babylon.vue';
+import Babylon from '../components/babylon/Babylon.vue';
 </script>
 
 <style scoped>

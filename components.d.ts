@@ -11,7 +11,7 @@ declare module 'vue' {
     AppConfig: typeof import('./src/components/navigation/AppConfig.vue')['default']
     AppFooter: typeof import('./src/components/navigation/AppFooter.vue')['default']
     AppTopbar: typeof import('./src/components/navigation/AppTopbar.vue')['default']
-    Babylon: typeof import('./src/components/babylon/babylon.vue')['default']
+    Babylon: typeof import('./src/components/babylon/Babylon.vue')['default']
     Chart: typeof import('primevue/chart')['default']
     ColorPicker: typeof import('primevue/colorpicker')['default']
     Column: typeof import('primevue/column')['default']
@@ -28,7 +28,7 @@ declare module 'vue' {
     SalesTrendWidget: typeof import('./src/components/dashboard/SalesTrendWidget.vue')['default']
     StatsWidget: typeof import('./src/components/dashboard/StatsWidget.vue')['default']
     Tag: typeof import('primevue/tag')['default']
-    Viewer: typeof import('./src/components/babylon/viewer.vue')['default']
+    ViewToolbar: typeof import('./src/components/babylon/ViewToolbar.vue')['default']
   }
   export interface ComponentCustomProperties {
     StyleClass: typeof import('primevue/styleclass')['default']

@@ -13,7 +13,7 @@ class SelectionManager {
 
         // Use a HighlightLayer for robust, non-destructive highlighting
         this.highlightLayer = new this.BABYLON.HighlightLayer("highlight-layer", this.scene);
-        this.highlightLayer.innerGlow = false;
+        this.highlightLayer.innerGlow = true;
         this.highlightLayer.outerGlow = true;
         
         // Colors for different selection types
@@ -31,93 +31,116 @@ class SelectionManager {
     }
 
     handleSelectionClick(event, canvas) {
-        // Get canvas bounds for correct coordinate calculation
-        const canvasRect = canvas.getBoundingClientRect()
-        const x = event.clientX - canvasRect.left
-        const y = event.clientY - canvasRect.top
-        
-        const pickInfo = this.scene.pick(x, y, (mesh) => mesh.isPickable && mesh.name !== 'ground')
+        const canvasRect = canvas.getBoundingClientRect();
+        const x = event.clientX - canvasRect.left;
+        const y = event.clientY - canvasRect.top;
+
+        // Capture the modifier key states AT THE TIME OF THE CLICK
+        const shiftPressed = event.shiftKey;
+        const multiSelectPressed = event.ctrlKey || event.metaKey; // Handles Ctrl on Win and Cmd on Mac
+
+        const pickInfo = this.scene.pick(x, y, (mesh) => mesh.isPickable && mesh.name !== 'ground');
         
         if (pickInfo.hit) {
-            event.preventDefault()
-            event.stopPropagation()
+            event.preventDefault();
+            event.stopPropagation();
             
-            this.clickCount++
+            this.clickCount++;
             
-            // Clear existing timer
             if (this.clickTimer) {
-                clearTimeout(this.clickTimer)
+                clearTimeout(this.clickTimer);
             }
             
-            // Set timer for multi-click detection
             this.clickTimer = setTimeout(() => {
-                this.processSelection(pickInfo, this.clickCount)
-                this.clickCount = 0
-            }, this.CLICK_DELAY)
-        } else {
-            this.clear() // Clear selection if nothing is picked
+                // Pass the captured key states to the processing function
+                this.processSelection(pickInfo, this.clickCount, shiftPressed, multiSelectPressed);
+                this.clickCount = 0;
+            }, this.CLICK_DELAY);
+
+        } else if (!multiSelectPressed && !shiftPressed) {
+            // Only clear if clicking on nothing WITHOUT a modifier key
+            this.clear();
+            if (this.onSelectionChanged) {
+                this.onSelectionChanged(null); // Notify that selection is empty
+            }
         }
     }
 
-    processSelection(pickInfo, clicks) {
+    processSelection(pickInfo, clicks, shiftPressed, multiSelectPressed) {
         try {
-            const mesh = pickInfo.pickedMesh
-            const faceId = pickInfo.faceId
+            // Only clear the selection if NOT in a multi-select mode.
+            // This is the key to adding/removing from a selection.
+            if (!shiftPressed && !multiSelectPressed) {
+                this.clear();
+            }
+
+            const mesh = pickInfo.pickedMesh;
+            const faceId = pickInfo.faceId;
             
-            // Clear previous selection
-            this.clear()
-            
-            switch (clicks) {
-                case 1:
-                    // Select single face
-                    this.selectFace(mesh, faceId)
-                    break
-                case 2:
-                    // Select face and connected edges (for now just the face)
-                    this.selectFace(mesh, faceId)
-                    break
-                case 3:
-                    // Select entire connected component
-                    this.selectConnectedComponent(mesh, faceId)
-                    break
+            // Now you can adapt your logic based on the keys
+            // For example, to toggle a mesh's selection on double-click with Ctrl/Cmd:
+            if (clicks === 2 && multiSelectPressed) {
+                this.toggleMesh(mesh); // Your existing toggle function is perfect here
+            } else {
+                // Fallback to your original selection logic
+                switch (clicks) {
+                    case 1:
+                        // You might want to add logic here to add/remove faces
+                        // from a selection instead of replacing.
+                        this.selectPlanarSurface(mesh, faceId);
+                        break;
+                    case 2:
+                        // Clear any sub-mesh selections for this mesh before selecting the full mesh
+                        this._clearSubMeshSelectionsForMesh(mesh);
+                        this.addMesh(mesh);
+                        break;
+                    case 3:
+                        const root = this._getAssetRoot(mesh);
+                        // Clear any sub-mesh selections for all meshes in the hierarchy
+                        root.getChildMeshes(false).forEach(child => {
+                            this._clearSubMeshSelectionsForMesh(child);
+                            this.addMesh(child);
+                        });
+                        if (root instanceof this.BABYLON.Mesh) {
+                            this._clearSubMeshSelectionsForMesh(root);
+                            this.addMesh(root);
+                        }
+                        break;
+                }
             }
             
-            // Trigger selection changed callback if set
+            // Trigger selection changed callback...
             if (this.onSelectionChanged) {
-                this.onSelectionChanged({ 
-                    selectedMeshes: Array.from(this.selectedMeshes), 
-                    selectedSubMeshes: Array.from(this.selectedSubMeshes.keys()),
-                    selectionType: clicks === 1 ? 'face' : clicks === 2 ? 'face-edges' : 'component'
-                })
+                // ...
             }
         } catch (error) {
-            console.error('Error in processSelection:', error)
+            console.error('Error in processSelection:', error);
         }
     }
 
-    /**
-     * Sets the callback function for selection changes
-     * @param {Function} callback Function to call when selection changes
-     */
     setSelectionChangedCallback(callback) {
         this.onSelectionChanged = callback
     }
 
-    /**
-     * Adds a mesh to the selection.
-     * @param {BABYLON.Mesh} mesh The mesh to add.
-     */
     addMesh(mesh) {
         if (!this.selectedMeshes.has(mesh)) {
             this.selectedMeshes.add(mesh);
             this.highlightLayer.addMesh(mesh, this.meshHighlightColor);
         }
     }
+
+    highlightMesh(mesh) {
+        if (mesh && !this.selectedMeshes.has(mesh)) {
+            this.highlightLayer.addMesh(mesh, this.meshHighlightColor);
+        }
+    }
+
+    clearHighlights() {
+        this.highlightLayer.removeAllMeshes();
+        this.selectedMeshes.clear();
+        this.selectedSubMeshes.clear();
+    }
     
-    /**
-     * Removes a mesh from the selection.
-     * @param {BABYLON.Mesh} mesh The mesh to remove.
-     */
     removeMesh(mesh) {
         if (this.selectedMeshes.has(mesh)) {
             this.selectedMeshes.delete(mesh);
@@ -125,10 +148,6 @@ class SelectionManager {
         }
     }
 
-    /**
-     * Toggles a mesh's selection state.
-     * @param {BABYLON.Mesh} mesh The mesh to toggle.
-     */
     toggleMesh(mesh) {
         if (this.selectedMeshes.has(mesh)) {
             this.removeMesh(mesh);
@@ -137,15 +156,8 @@ class SelectionManager {
         }
     }
 
-    /**
-     * Selects a single face of a mesh.
-     * This creates a temporary mesh to represent the face for highlighting.
-     * @param {BABYLON.Mesh} mesh The parent mesh.
-     * @param {number} faceId The ID of the face to select.
-     */
     selectFace(mesh, faceId) {
         try {
-            this.clear(); // Face selection is exclusive for now
             const faceMesh = this._createFaceMesh(mesh, faceId);
             if (faceMesh) {
                 this.selectedSubMeshes.set('face_' + faceId, { parent: mesh, visual: faceMesh });
@@ -157,13 +169,29 @@ class SelectionManager {
     }
 
     /**
-     * Selects all connected faces of a mesh starting from a given face.
-     * @param {BABYLON.Mesh} mesh The parent mesh.
-     * @param {number} startFaceId The starting face for the search.
+     * Selects a full planar surface starting from a single picked face.
+     * @param {BABYLON.AbstractMesh} mesh The parent mesh.
+     * @param {number} startFaceId The face ID that was picked.
      */
+    selectPlanarSurface(mesh, startFaceId) {
+        try {
+            // Find all connected co-planar faces
+            const connectedFaces = this._findCoplanarConnectedFaces(mesh, startFaceId);
+            
+            // Create a single mesh to highlight the entire surface
+            const componentMesh = this._createMeshFromFaces(mesh, Array.from(connectedFaces));
+
+            if (componentMesh) {
+                this.selectedSubMeshes.set('surface_' + startFaceId, { parent: mesh, visual: componentMesh });
+                this.highlightLayer.addMesh(componentMesh, this.faceHighlightColor); // Or use a dedicated surface color
+            }
+        } catch (error) {
+            console.error('Error selecting planar surface:', error);
+        }
+    }
+
     selectConnectedComponent(mesh, startFaceId) {
         try {
-            this.clear(); // Component selection is exclusive
             const connectedFaces = this._findConnectedFaces(mesh, startFaceId);
             const componentMesh = this._createMeshFromFaces(mesh, Array.from(connectedFaces));
             if (componentMesh) {
@@ -175,10 +203,6 @@ class SelectionManager {
         }
     }
 
-    /**
-     * Gets the current selection data
-     * @returns {Object} Object containing selected meshes and sub-meshes
-     */
     getSelectionData() {
         return {
             selectedMeshes: Array.from(this.selectedMeshes),
@@ -186,9 +210,6 @@ class SelectionManager {
         }
     }
 
-    /**
-     * Clears the entire selection, including meshes and sub-meshes.
-     */
     clear() {
         try {
             // Clear main mesh selections
@@ -230,53 +251,91 @@ class SelectionManager {
     }
 
     // --- Private Helper Methods for Sub-Geometry ---
+    /**
+     * Finds the top-level ancestor of a mesh.
+     * @param {BABYLON.AbstractMesh} mesh The starting mesh.
+     * @returns {BABYLON.Node} The highest-level parent.
+     */
+    _getAssetRoot(mesh) {
+        let current = mesh;
+        // Traverse up the hierarchy until there is no parent
+        while (current.parent) {
+            current = current.parent;
+        }
+        return current;
+    }
+
+    /**
+     * Clears any sub-mesh selections (faces, surfaces, components) for a specific mesh.
+     * @param {BABYLON.AbstractMesh} mesh The mesh to clear sub-selections for.
+     */
+    _clearSubMeshSelectionsForMesh(mesh) {
+        const keysToRemove = [];
+        
+        // Find all sub-mesh selections that belong to this mesh
+        this.selectedSubMeshes.forEach((subMeshData, key) => {
+            if (subMeshData.parent === mesh) {
+                keysToRemove.push(key);
+                // Remove from highlight layer and dispose visual mesh
+                if (subMeshData.visual) {
+                    this.highlightLayer.removeMesh(subMeshData.visual);
+                    if (subMeshData.visual.dispose) {
+                        subMeshData.visual.dispose();
+                    }
+                }
+            }
+        });
+        
+        // Remove the keys from the map
+        keysToRemove.forEach(key => {
+            this.selectedSubMeshes.delete(key);
+        });
+    }
 
     _createFaceMesh(sourceMesh, faceId) {
         try {
             const positions = sourceMesh.getVerticesData(this.BABYLON.VertexBuffer.PositionKind);
             const indices = sourceMesh.getIndices();
-            if (!positions || !indices) {
-                console.warn('Mesh has no position data or indices');
+            if (!positions || !indices || (faceId * 3 + 2 >= indices.length)) {
+                console.warn('Invalid mesh data or faceId for face selection.');
                 return null;
             }
 
-            // Check if faceId is valid
-            if (faceId * 3 + 2 >= indices.length) {
-                console.warn('FaceId is out of bounds:', faceId, 'max faces:', Math.floor(indices.length / 3));
-                return null;
-            }
-
-            const faceVertexIndices = [indices[faceId * 3], indices[faceId * 3 + 1], indices[faceId * 3 + 2]];
+            const worldMatrix = sourceMesh.getWorldMatrix();
             const facePositions = [];
-            faceVertexIndices.forEach(index => {
-                if (index * 3 + 2 < positions.length) {
-                    facePositions.push(positions[index * 3], positions[index * 3 + 1], positions[index * 3 + 2]);
-                } else {
-                    console.warn('Vertex index out of bounds:', index);
-                    return null;
-                }
-            });
 
-            if (facePositions.length !== 9) { // 3 vertices * 3 components each
-                console.warn('Invalid face positions length:', facePositions.length);
-                return null;
+            // Get the three vertices of the face
+            for (let i = 0; i < 3; i++) {
+                const index = indices[faceId * 3 + i];
+                const localPos = new this.BABYLON.Vector3(
+                    positions[index * 3], 
+                    positions[index * 3 + 1], 
+                    positions[index * 3 + 2]
+                );
+                // Transform local vertex position to world position
+                const worldPos = this.BABYLON.Vector3.TransformCoordinates(localPos, worldMatrix);
+                facePositions.push(worldPos.x, worldPos.y, worldPos.z);
             }
 
-            const customMesh = new this.BABYLON.Mesh("face_" + faceId, this.scene);
+            const customMesh = new this.BABYLON.Mesh("faceHighlight_" + faceId, this.scene);
             const vertexData = new this.BABYLON.VertexData();
             vertexData.positions = facePositions;
             vertexData.indices = [0, 1, 2];
             vertexData.applyToMesh(customMesh);
 
-            customMesh.position = sourceMesh.position;
-            customMesh.rotationQuaternion = sourceMesh.rotationQuaternion;
-            customMesh.scaling = sourceMesh.scaling;
-            customMesh.isPickable = false; // Don't allow picking the highlight mesh
-
-            // Use a transparent material to avoid z-fighting issues
-            const material = new this.BABYLON.StandardMaterial("faceMat", this.scene);
-            material.alpha = 0.0;
-            customMesh.material = material;
+            // Since vertices are now in world space, the highlight mesh itself has no transformation
+            customMesh.position = this.BABYLON.Vector3.Zero();
+            customMesh.rotationQuaternion = this.BABYLON.Quaternion.Identity();
+            customMesh.scaling = new this.BABYLON.Vector3(1, 1, 1);
+            
+            customMesh.isPickable = false;
+            
+            // Use a single, transparent material for all highlight meshes to be efficient
+            if (!this.dummyMaterial) {
+                this.dummyMaterial = new this.BABYLON.StandardMaterial("dummyMat", this.scene);
+                this.dummyMaterial.alpha = 0.0;
+            }
+            customMesh.material = this.dummyMaterial;
 
             return customMesh;
         } catch (error) {
@@ -290,6 +349,7 @@ class SelectionManager {
         const indices = sourceMesh.getIndices();
         if (!positions || !indices) return null;
 
+        const worldMatrix = sourceMesh.getWorldMatrix();
         const newPositions = [];
         const newIndices = [];
         const vertexMap = new Map();
@@ -298,29 +358,44 @@ class SelectionManager {
         faceIds.forEach(faceId => {
             for (let i = 0; i < 3; i++) {
                 const originalIndex = indices[faceId * 3 + i];
+                
                 if (!vertexMap.has(originalIndex)) {
                     vertexMap.set(originalIndex, newIndexCounter);
-                    newPositions.push(positions[originalIndex * 3], positions[originalIndex * 3 + 1], positions[originalIndex * 3 + 2]);
+                    
+                    const localPos = new this.BABYLON.Vector3(
+                        positions[originalIndex * 3],
+                        positions[originalIndex * 3 + 1],
+                        positions[originalIndex * 3 + 2]
+                    );
+                    // Transform to world space
+                    const worldPos = this.BABYLON.Vector3.TransformCoordinates(localPos, worldMatrix);
+                    
+                    newPositions.push(worldPos.x, worldPos.y, worldPos.z);
                     newIndexCounter++;
                 }
                 newIndices.push(vertexMap.get(originalIndex));
             }
         });
         
-        const customMesh = new this.BABYLON.Mesh("componentMesh", this.scene);
+        const customMesh = new this.BABYLON.Mesh("componentHighlight", this.scene);
         const vertexData = new this.BABYLON.VertexData();
         vertexData.positions = newPositions;
         vertexData.indices = newIndices;
         vertexData.applyToMesh(customMesh);
 
-        customMesh.position = sourceMesh.position;
-        customMesh.rotationQuaternion = sourceMesh.rotationQuaternion;
-        customMesh.scaling = sourceMesh.scaling;
+        // Mesh is at origin since vertices are in world space
+        customMesh.position = this.BABYLON.Vector3.Zero();
+        customMesh.rotationQuaternion = this.BABYLON.Quaternion.Identity();
+        customMesh.scaling = new this.BABYLON.Vector3(1, 1, 1);
+        
         customMesh.isPickable = false;
         
-        const material = new this.BABYLON.StandardMaterial("compMat", this.scene);
-        material.alpha = 0.0;
-        customMesh.material = material;
+        // Reuse the dummy material
+        if (!this.dummyMaterial) {
+            this.dummyMaterial = new this.BABYLON.StandardMaterial("dummyMat", this.scene);
+            this.dummyMaterial.alpha = 0.0;
+        }
+        customMesh.material = this.dummyMaterial;
 
         return customMesh;
     }
@@ -378,6 +453,56 @@ class SelectionManager {
 
         return adjacency;
     }
+
+    /**
+ * Finds all faces in a mesh that are connected to a starting face and are co-planar with it.
+ * @param {BABYLON.AbstractMesh} mesh The mesh to search within.
+ * @param {number} startFaceId The index of the starting face.
+ * @returns {Set<number>} A set of face IDs that are connected and co-planar.
+ */
+_findCoplanarConnectedFaces(mesh, startFaceId) {
+    const indices = mesh.getIndices();
+    const positions = mesh.getVerticesData(this.BABYLON.VertexBuffer.PositionKind);
+    if (!indices || !positions) return new Set([startFaceId]);
+
+    // --- 1. Get the reference plane from the starting face ---
+    const startFaceIndices = [indices[startFaceId * 3], indices[startFaceId * 3 + 1], indices[startFaceId * 3 + 2]];
+    const startFaceVertices = startFaceIndices.map(index => this.BABYLON.Vector3.FromArray(positions, index * 3));
+    const referencePlane = this.BABYLON.Plane.FromPoints(startFaceVertices[0], startFaceVertices[1], startFaceVertices[2]);
+    
+    // --- 2. Get face adjacency and prepare for search ---
+    const adjacency = this._buildAdjacencyList(mesh);
+    const coplanarFaces = new Set();
+    const queue = [startFaceId];
+    const visited = new Set([startFaceId]);
+    const epsilon = 1e-5; // Tolerance for floating point comparisons
+
+    // --- 3. Perform BFS to find all matching faces ---
+    while (queue.length > 0) {
+        const currentFaceId = queue.shift();
+        coplanarFaces.add(currentFaceId);
+
+        const neighbors = adjacency.get(currentFaceId) || [];
+        for (const neighborFaceId of neighbors) {
+            if (visited.has(neighborFaceId)) continue;
+            visited.add(neighborFaceId);
+            
+            // --- 4. Check if the neighbor is co-planar ---
+            const neighborFaceIndices = [indices[neighborFaceId * 3], indices[neighborFaceId * 3 + 1], indices[neighborFaceId * 3 + 2]];
+            const neighborVertices = neighborFaceIndices.map(index => this.BABYLON.Vector3.FromArray(positions, index * 3));
+            const neighborNormal = this.BABYLON.Plane.FromPoints(neighborVertices[0], neighborVertices[1], neighborVertices[2]).normal;
+
+            // Check if normals are parallel and a point from the neighbor triangle lies on the reference plane
+            const isNormalAligned = Math.abs(this.BABYLON.Vector3.Dot(referencePlane.normal, neighborNormal)) > (1 - epsilon);
+            const isPointOnPlane = Math.abs(referencePlane.signedDistanceTo(neighborVertices[0])) < epsilon;
+
+            if (isNormalAligned && isPointOnPlane) {
+                queue.push(neighborFaceId);
+            }
+        }
+    }
+    return coplanarFaces;
+}
 }
 
 // Export the class for use in other modules

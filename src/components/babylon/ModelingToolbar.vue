@@ -45,7 +45,8 @@ import { ref, onMounted } from 'vue'
 const props = defineProps({
     scene: Object,
     canvas: Object,
-    selectionManager: Object
+    selectionManager: Object,
+    snapManager: Object
 })
 
 // Emits
@@ -53,11 +54,13 @@ const emit = defineEmits(['tool-changed', 'selection-changed'])
 
 // State
 const activeTool = ref('')
+const lastActiveTool = ref('selection') // Remember the last active tool
 
 // Tool selection
 function selectTool(tool) {
     if (activeTool.value === tool) return
     activeTool.value = tool
+    lastActiveTool.value = tool // Remember this selection
     
     // Setup tool-specific behavior
     switch (tool) {
@@ -80,6 +83,12 @@ function setupSelectionTool() {
     if (props.scene && props.canvas) {
         // Remove existing click listeners
         removeAllListeners()
+        
+        // Deactivate snap manager for selection tool
+        if (props.snapManager) {
+            props.snapManager.disable()
+        }
+        
         props.canvas.addEventListener('click', handleSelectionClick, true) // true = capture phase
     }
 }
@@ -87,6 +96,12 @@ function setupSelectionTool() {
 function setupPencilTool() {
     if (props.scene && props.canvas) {
         removeAllListeners()
+
+        // Activate snap manager for pencil tool
+        if (props.snapManager) {
+            console.log('Activating snap manager for pencil tool')
+            props.snapManager.enable()
+        }
 
         //props.canvas.addEventListener('mousedown', handlePencilMouseDown, true)
         //props.canvas.addEventListener('mousemove', handlePencilMouseMove, true)
@@ -98,6 +113,11 @@ function setupPencilTool() {
 function setupPushPullTool() {
     if (props.scene && props.canvas) {
         removeAllListeners()
+        
+        // Deactivate snap manager for push/pull tool
+        if (props.snapManager) {
+            props.snapManager.deactivate()
+        }
         
         //props.canvas.addEventListener('mousedown', handlePushPullMouseDown, true)
         //props.canvas.addEventListener('mousemove', handlePushPullMouseMove, true)
@@ -126,24 +146,52 @@ function removeAllListeners() {
 
 const handleSelectionClick = (event) => {
     if (!props.selectionManager) return
-    
-    // Use SelectionManager's built-in selection handling
     props.selectionManager.handleSelectionClick(event, props.canvas)
 }
 
+// Method to deactivate modeling tools (called from parent when view tools are activated)
+function deactivateModelingTools() {
+    if (activeTool.value !== '') {
+        removeAllListeners()
+        
+        // Deactivate snap manager when modeling tools are deactivated
+        if (props.snapManager) {
+            props.snapManager.deactivate()
+        }
+        
+        activeTool.value = ''
+        console.log('Modeling tools deactivated')
+    }
+}
+
+// Method to reactivate modeling tools (called from parent when view tools return to orbit)
+function reactivateModelingTools() {
+    if (activeTool.value === '' && lastActiveTool.value) {
+        selectTool(lastActiveTool.value)
+        console.log(`Modeling tools reactivated: ${lastActiveTool.value}`)
+    }
+}
+
+// Expose methods for parent component
+defineExpose({
+    deactivateModelingTools,
+    reactivateModelingTools
+})
+
 // Initialize with selection tool
 onMounted(() => {
-    selectTool('selection')
+    selectTool('')
 })
 </script>
 
 <style scoped>
 .modeling-toolbar {
     position: fixed;
-    top: 20px;
+    top: 50%;
     left: 20px;
-    width: 50px;
-    background: rgba(255, 255, 255, 0.65);
+    transform: translateY(-50%);
+    width: 60px;
+    background: rgba(255, 255, 255, 0.90);
     backdrop-filter: blur(10px);
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -184,22 +232,26 @@ onMounted(() => {
     border: 2px solid transparent;
 }
 
+
 .tool-button:hover {
+    background: rgba(0, 0, 0, 0.05);
 }
 
 .tool-button.active {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .tool-button i {
-    font-size: 20px;
+    font-size: 16px;
     color: #666;
-    margin-bottom: 4px;
     transition: color 0.2s ease;
 }
 
-.tool-button:hover i{
+.tool-button:hover i {
     color: black;
 }
+
 .tool-button.active i {
     color: #3b82f6;
 }
@@ -213,9 +265,10 @@ onMounted(() => {
     transition: color 0.2s ease;
 }
 
-.tool-button:hover .tool-label{
+.tool-button:hover .tool-label {
     color: #000000;
 }
+
 .tool-button.active .tool-label {
     color: #3b82f6;
 }
